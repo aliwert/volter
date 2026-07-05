@@ -15,4 +15,5 @@ tower = { workspace = true }
 [dev-dependencies]
 tokio = { workspace = true }
 serde = { workspace = true }
+bytes = { workspace = true }
 volter-extract = { workspace = true }

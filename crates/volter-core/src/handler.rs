@@ -8,8 +8,8 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use crate::body::{Request, Response};
-use crate::extract::FromRequestParts;
+use crate::body::{BoxBody, Request, Response};
+use crate::extract::{FromRequest, FromRequestParts};
 use crate::into_response::IntoResponse;
 
 /// A request handler: any async function whose arguments are extractors,
@@ -47,10 +47,11 @@ where
 }
 
 // ---------------------------------------------------------------------------
-// Blanket impl for single-extractor handlers
+// Blanket impl for single-extractor (FromRequestParts) handlers
 // ---------------------------------------------------------------------------
 
-/// Blanket impl for handlers that take a single extractor argument.
+/// Blanket impl for handlers that take a single extractor argument via
+/// [`FromRequestParts`].
 ///
 /// Any async fn `F: Fn(E) -> Fut` where `Fut: Future<Output = R>`,
 /// `R: IntoResponse`, and `E: FromRequestParts<S>` is a valid handler.
@@ -76,6 +77,44 @@ where
         Box::pin(async move {
             let (mut parts, _body) = req.into_parts();
             let extracted = match E::from_request_parts(&mut parts, &state).await {
+                Ok(v) => v,
+                Err(rejection) => return rejection.into_response(),
+            };
+            (self)(extracted).await.into_response()
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Blanket impl for single-extractor (FromRequest) handlers
+// ---------------------------------------------------------------------------
+
+/// Blanket impl for handlers that take a single extractor argument that
+/// consumes the body via [`FromRequest`].
+///
+/// Any async fn `F: Fn(E) -> Fut` where `Fut: Future<Output = R>`,
+/// `R: IntoResponse`, and `E: FromRequest<S, BoxBody>` is a valid handler.
+///
+/// Unlike the [`FromRequestParts`] variant which splits the request and
+/// drops the body, this impl passes the full request (including body) to
+/// [`FromRequest::from_request`].
+///
+/// The marker type `(E, BoxBody)` (a 2-tuple) is deliberately different
+/// from the `(E,)` 1-tuple used by the [`FromRequestParts`] blanket, so
+/// the two impls do not overlap.
+impl<F, Fut, R, S, E> Handler<(E, BoxBody), S> for F
+where
+    F: Fn(E) -> Fut + Clone + Send + 'static,
+    Fut: Future<Output = R> + Send + 'static,
+    R: IntoResponse,
+    S: Clone + Send + 'static,
+    E: FromRequest<S, BoxBody> + Send + 'static,
+{
+    type Future = Pin<Box<dyn Future<Output = Response> + Send>>;
+
+    fn call(self, req: Request, state: S) -> Self::Future {
+        Box::pin(async move {
+            let extracted = match E::from_request(req, &state).await {
                 Ok(v) => v,
                 Err(rejection) => return rejection.into_response(),
             };

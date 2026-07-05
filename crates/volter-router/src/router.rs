@@ -217,14 +217,24 @@ mod tests {
 
     use super::*;
     use crate::get;
+    use bytes::Bytes;
     use http::StatusCode;
-    use volter_core::empty_body;
+    use volter_core::{empty_body, full_body};
 
     fn request(method: http::Method, path: &str) -> Request {
         http::Request::builder()
             .method(method)
             .uri(path)
             .body(empty_body())
+            .unwrap()
+    }
+
+    fn json_request(method: http::Method, path: &str, body: &[u8]) -> Request {
+        http::Request::builder()
+            .method(method)
+            .uri(path)
+            .header("content-type", "application/json")
+            .body(full_body(Bytes::copy_from_slice(body)))
             .unwrap()
     }
 
@@ -585,5 +595,154 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    // -- Json extractor tests ------------------------------------------------
+
+    #[tokio::test]
+    async fn json_valid_body() {
+        #[derive(serde::Deserialize)]
+        struct CreateUser {
+            name: String,
+            age: u8,
+        }
+
+        async fn handler(
+            volter_extract::Json(payload): volter_extract::Json<CreateUser>,
+        ) -> String {
+            format!("{} is {}", payload.name, payload.age)
+        }
+
+        let mut app = Router::new().route("/users", get(handler));
+        let body = br#"{"name":"Alice","age":30}"#;
+        let response = app
+            .call(json_request(http::Method::GET, "/users", body))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn json_missing_content_type_returns_415() {
+        #[derive(serde::Deserialize)]
+        struct CreateUser {
+            name: String,
+            age: u8,
+        }
+
+        async fn handler(
+            volter_extract::Json(payload): volter_extract::Json<CreateUser>,
+        ) -> String {
+            format!("{} is {}", payload.name, payload.age)
+        }
+
+        let mut app = Router::new().route("/users", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/users"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    }
+
+    #[tokio::test]
+    async fn json_unsupported_content_type_returns_415() {
+        #[derive(serde::Deserialize)]
+        struct CreateUser {
+            name: String,
+            age: u8,
+        }
+
+        async fn handler(
+            volter_extract::Json(payload): volter_extract::Json<CreateUser>,
+        ) -> String {
+            format!("{} is {}", payload.name, payload.age)
+        }
+
+        let mut app = Router::new().route("/users", get(handler));
+        let body = br#"{"name":"Alice","age":30}"#;
+        let request = http::Request::builder()
+            .method(http::Method::GET)
+            .uri("/users")
+            .header("content-type", "text/plain")
+            .body(full_body(Bytes::copy_from_slice(body)))
+            .unwrap();
+        let response = app.call(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    }
+
+    #[tokio::test]
+    async fn json_invalid_syntax_returns_400() {
+        #[derive(serde::Deserialize)]
+        struct CreateUser {
+            name: String,
+            age: u8,
+        }
+
+        async fn handler(
+            volter_extract::Json(payload): volter_extract::Json<CreateUser>,
+        ) -> String {
+            format!("{} is {}", payload.name, payload.age)
+        }
+
+        let mut app = Router::new().route("/users", get(handler));
+        let body = b"not valid json";
+        let response = app
+            .call(json_request(http::Method::GET, "/users", body))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn json_wrong_shape_returns_400() {
+        #[derive(serde::Deserialize)]
+        struct CreateUser {
+            name: String,
+            age: u8,
+        }
+
+        async fn handler(
+            volter_extract::Json(payload): volter_extract::Json<CreateUser>,
+        ) -> String {
+            format!("{} is {}", payload.name, payload.age)
+        }
+
+        let mut app = Router::new().route("/users", get(handler));
+        let body = br#"{"name":"Alice","age":"not-a-number"}"#;
+        let response = app
+            .call(json_request(http::Method::GET, "/users", body))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn json_response() {
+        #[derive(serde::Deserialize, serde::Serialize)]
+        struct CreateUser {
+            name: String,
+            age: u8,
+        }
+
+        async fn handler(
+            volter_extract::Json(payload): volter_extract::Json<CreateUser>,
+        ) -> volter_extract::Json<CreateUser> {
+            volter_extract::Json(payload)
+        }
+
+        let mut app = Router::new().route("/users", get(handler));
+        let body = br#"{"name":"Alice","age":30}"#;
+        let response = app
+            .call(json_request(http::Method::GET, "/users", body))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get(http::header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok()),
+            Some("application/json")
+        );
     }
 }
