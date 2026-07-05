@@ -1,0 +1,28 @@
+[package]
+name = "volter"
+description = "Volter: a production-grade, async-first web framework for Rust. Re-exports the full public API."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+volter-core = { workspace = true }
+volter-router = { workspace = true }
+volter-extract = { workspace = true }
+volter-middleware = { workspace = true }
+tokio = { workspace = true }
+
+[dependencies.volter-macros]
+workspace = true
+optional = true
+
+[dependencies.volter-ws]
+workspace = true
+optional = true
+
+[features]
+default = ["macros"]
+macros = ["dep:volt-macros"]
+ws = ["dep:volt-ws"]

@@ -4,4 +4,3 @@ Cargo.lock
 .DS_Store
 *.pdb
 *.md
-crates

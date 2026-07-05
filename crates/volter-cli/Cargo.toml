@@ -1,0 +1,19 @@
+[package]
+name = "volter-cli"
+description = "Developer CLI for volter: project scaffolding, dev server with reload."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "volter"
+path = "src/main.rs"
+
+[dependencies]
+# The CLI is the one place `anyhow` is allowed (see RULES.md #4) — it's a
+# binary, not a published library API.
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+tokio = { workspace = true }

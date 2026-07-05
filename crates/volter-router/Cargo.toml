@@ -1,0 +1,16 @@
+[package]
+name = "volter-router"
+description = "Radix-tree based request router for volter."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+volter-core = { workspace = true }
+http = { workspace = true }
+tower = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

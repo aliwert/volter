@@ -1,0 +1,15 @@
+[package]
+name = "volter-testing"
+description = "In-process TestClient for integration-testing volter applications without binding a real socket."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+volter-core = { workspace = true }
+http = { workspace = true }
+http-body-util = { workspace = true }
+tower = { workspace = true }
+tokio = { workspace = true }

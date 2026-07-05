@@ -1,0 +1,15 @@
+[package]
+name = "volter-core"
+description = "Core traits and types for the volter web framework: Handler, FromRequest(Parts), IntoResponse."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+http = { workspace = true }
+http-body = { workspace = true }
+http-body-util = { workspace = true }
+bytes = { workspace = true }
+tower = { workspace = true }

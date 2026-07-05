@@ -1,0 +1,16 @@
+[package]
+name = "volter-extract"
+description = "Built-in extractors for volter: Json, Query, Path, State, Extension, headers."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+volter-core = { workspace = true }
+http = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_urlencoded = { workspace = true }
+bytes = { workspace = true }
