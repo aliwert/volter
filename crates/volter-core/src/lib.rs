@@ -27,7 +27,7 @@ mod handler;
 mod into_response;
 mod service;
 
-pub use body::{Body, BoxBody, BoxError, Request, Response};
+pub use body::{empty_body, full_body, Body, BoxBody, BoxError, Request, Response};
 pub use extract::{FromRequest, FromRequestParts};
 pub use handler::Handler;
 pub use into_response::IntoResponse;

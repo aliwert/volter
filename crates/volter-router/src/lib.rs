@@ -1,26 +1,14 @@
-//! Radix-tree (trie) based router for volter.
+//! Request router for Volter.
 //!
-//! See `ARCHITECTURE.md` → "Router architecture" at the workspace root for
-//! the full design. This crate is not implemented yet — it's the next
-//! piece to build after `volter-core`'s traits settle.
+//! This crate provides the routing layer of the framework:
 //!
-//! Planned public surface:
+//! - [`Router`] — the main entry point.  Holds a collection of routes and
+//!   implements [`tower::Service`].
+//! - [`MethodRouter`] — per-path dispatcher that routes by HTTP method.
+//! - [`get`] — construct a [`MethodRouter`] for a GET handler.
 //!
-//! - `Router<S>` — the main entry point. Implements `tower::Service` so it
-//!   composes with any `tower`/`tower-http` middleware.
-//! - `Router::route(path, method_router)` — register a handler for a path.
-//! - `Router::layer(middleware)` — wrap the whole router in a `tower::Layer`.
-//! - `Router::with_state(state)` — attach typed application state, checked
-//!   at compile time (see `ARCHITECTURE.md` → "State & dependency injection").
-//! - Path syntax: static segments (`/users`), named params (`/users/:id`),
-//!   and a trailing wildcard (`/files/*rest`).
-//! - Each registered route also carries a metadata slot (initially unused)
-//!   reserved for future OpenAPI/schema generation, so adding that later
-//!   doesn't require a breaking change to the router's public API.
-//!
-//! TODO(v0.1): implement the trie itself, benchmark against `matchit`
-//! before deciding to keep a custom implementation (see `TOOLS.md` →
-//! "Routing").
+//! See the workspace root `ARCHITECTURE.md` → "Router architecture" for
+//! the full design.
 
 #![deny(missing_docs)]
 #![deny(
@@ -30,30 +18,11 @@
     clippy::indexing_slicing
 )]
 
-use std::marker::PhantomData;
+mod error;
+mod method_router;
+mod route;
+mod router;
 
-/// A Volter router.
-///
-/// Maps incoming HTTP requests to handlers based on path patterns and
-/// HTTP methods. Implements `tower::Service` so it composes with the
-/// entire `tower`/`tower-http` middleware ecosystem.
-///
-/// The type parameter `S` represents the shared application state type.
-pub struct Router<S = ()> {
-    _state: PhantomData<fn() -> S>,
-}
-
-impl<S> Router<S> {
-    /// Create a new empty router.
-    pub fn new() -> Self {
-        Self {
-            _state: PhantomData,
-        }
-    }
-}
-
-impl<S> Default for Router<S> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+pub use method_router::MethodRouter;
+pub use route::get;
+pub use router::Router;

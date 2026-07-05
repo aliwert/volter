@@ -10,6 +10,7 @@ members = [
     "crates/volter-ws",
     "crates/volter-testing",
     "crates/volter-cli",
+    "examples/hello-world",
 ]
 
 [workspace.package]

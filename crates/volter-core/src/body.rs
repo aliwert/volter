@@ -67,11 +67,11 @@ impl http_body::Body for VolterBody {
 }
 
 /// Create an empty boxed body.
-pub(crate) fn empty_body() -> BoxBody {
+pub fn empty_body() -> BoxBody {
     BoxBody::new(VolterBody(None))
 }
 
 /// Create a boxed body from a chunk of bytes.
-pub(crate) fn full_body(bytes: Bytes) -> BoxBody {
+pub fn full_body(bytes: Bytes) -> BoxBody {
     BoxBody::new(VolterBody(Some(bytes)))
 }

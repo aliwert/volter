@@ -21,12 +21,12 @@
 
 /// Core traits, types, and adapters.
 pub use volter_core::{
-    Body, BoxBody, BoxError, FromRequest, FromRequestParts, Handler, HandlerService, IntoResponse,
-    Request, Response,
+    http, Body, BoxBody, BoxError, FromRequest, FromRequestParts, Handler, HandlerService,
+    IntoResponse, Request, Response,
 };
 
 /// Router for request routing.
-pub use volter_router::Router;
+pub use volter_router::{get, MethodRouter, Router};
 
 /// Standard extractors.
 pub use volter_extract::{Extension, Json, Path, Query, State};
