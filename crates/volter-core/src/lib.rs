@@ -1,16 +1,17 @@
-//! Core traits and types for volter.
+//! Core traits and types for Volter.
 //!
-//! This crate defines the foundational abstractions the rest of the volter
-//! ecosystem builds on: [`Handler`], [`FromRequestParts`], [`FromRequest`],
-//! and [`IntoResponse`]. See `ARCHITECTURE.md` at the workspace root for the
-//! reasoning behind this design, and `RULES.md` for the constraints every
-//! implementation of these traits must follow (no panics on user input, no
-//! blocking calls, structured errors only).
+//! This crate defines the foundational abstractions the rest of the Volter
+//! ecosystem builds on:
 //!
-//! **Status:** v0.1 sketch. The trait signatures below (particularly the
-//! `impl Future ... + Send` return positions) are a starting point and will
-//! need refinement once the router and macro crates are built against them
-//! — expect to revisit `Send`/object-safety bounds here first.
+//! - [`IntoResponse`] — how values turn into HTTP responses.
+//! - [`FromRequestParts`] / [`FromRequest`] — typed extraction from requests.
+//! - [`Handler`] — async function handlers.
+//! - [`HandlerService`] — a [`tower::Service`] adapter for handlers.
+//! - [`Body`], [`BoxBody`], [`Request`], [`Response`] — core HTTP type aliases.
+//!
+//! See `ARCHITECTURE.md` at the workspace root for the reasoning behind
+//! this design, and `RULES.md` for the constraints every implementation
+//! must follow.
 
 #![deny(missing_docs)]
 #![deny(
@@ -20,75 +21,125 @@
     clippy::indexing_slicing
 )]
 
-use std::future::Future;
+mod body;
+mod extract;
+mod handler;
+mod into_response;
+mod service;
 
+pub use body::{Body, BoxBody, BoxError, Request, Response};
+pub use extract::{FromRequest, FromRequestParts};
+pub use handler::Handler;
+pub use into_response::IntoResponse;
+pub use service::HandlerService;
+
+/// Re-export of the `http` crate so downstream users can refer to common
+/// HTTP types ( [`http::StatusCode`], [`http::Method`], etc.) through
+/// `volter_core::http`.
 pub use http;
 
-/// A type-erased, streaming HTTP body used throughout volter.
-pub type BoxBody = http_body_util::combinators::BoxBody<bytes::Bytes, BoxError>;
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
-/// A boxed, dynamic error used where callers need `Send + Sync + 'static`
-/// without naming a concrete streaming-body error type.
-pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-/// The request type used throughout volter: a thin alias over
-/// [`http::Request`] with a boxed, streaming body.
-pub type Request<B = BoxBody> = http::Request<B>;
+    use super::*;
+    use crate::body::empty_body;
+    use http::StatusCode;
+    use std::convert::Infallible;
+    use tower::Service;
 
-/// The response type used throughout volter.
-pub type Response<B = BoxBody> = http::Response<B>;
+    // -- IntoResponse tests --------------------------------------------------
 
-/// Turn a value into an HTTP [`Response`].
-///
-/// This is how handler return types, and extractor rejections, become
-/// actual responses. See `RULES.md` #4 ("Error handling") for the
-/// constraints implementors of this trait must follow.
-pub trait IntoResponse {
-    /// Convert `self` into a [`Response`].
-    fn into_response(self) -> Response;
-}
+    #[test]
+    fn response_passthrough() {
+        let original = Response::new(empty_body());
+        let response = original.into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
 
-/// Extract a typed value from the request's [`http::request::Parts`]
-/// (method, uri, headers, extensions) without consuming the body.
-///
-/// Implement this for anything derivable from headers/uri/method alone —
-/// e.g. `Path<T>`, `Query<T>`, typed headers, `State<T>`.
-pub trait FromRequestParts<S>: Sized {
-    /// The response returned when extraction fails.
-    type Rejection: IntoResponse;
+    #[test]
+    fn status_code_response() {
+        let response = StatusCode::NOT_FOUND.into_response();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
 
-    /// Perform the extraction.
-    fn from_request_parts(
-        parts: &mut http::request::Parts,
-        state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send;
-}
+    #[test]
+    fn str_response() {
+        let response = "hello".into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
 
-/// Extract a typed value that may need the request body (e.g. `Json<T>`).
-///
-/// Only one `FromRequest` extractor may appear per handler, and it must be
-/// the last argument, since it consumes the body.
-pub trait FromRequest<S, B = BoxBody>: Sized {
-    /// The response returned when extraction fails.
-    type Rejection: IntoResponse;
+    #[test]
+    fn string_response() {
+        let response = String::from("hello").into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
 
-    /// Perform the extraction, consuming the request.
-    fn from_request(
-        req: http::Request<B>,
-        state: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send;
-}
+    #[test]
+    fn tuple_status_response() {
+        let response = (StatusCode::CREATED, "body").into_response();
+        assert_eq!(response.status(), StatusCode::CREATED);
+    }
 
-/// A request handler: any async function whose arguments are extractors,
-/// and whose return type implements [`IntoResponse`].
-///
-/// `T` is a marker type parameter used to disambiguate handler function
-/// arities/argument types via blanket impls (see `volter`'s handler-impl
-/// macro invocations once that crate exists).
-pub trait Handler<T, S>: Clone + Send + Sized + 'static {
-    /// The future returned by [`Handler::call`].
-    type Future: Future<Output = Response> + Send + 'static;
+    #[test]
+    fn unit_into_response() {
+        let response = ().into_response();
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    }
 
-    /// Invoke the handler.
-    fn call(self, req: Request, state: S) -> Self::Future;
+    #[test]
+    fn result_ok_into_response() {
+        let response: Result<&'static str, StatusCode> = Ok("hello");
+        let resp = response.into_response();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[test]
+    fn result_err_into_response() {
+        let response: Result<(), StatusCode> = Err(StatusCode::BAD_REQUEST);
+        let resp = response.into_response();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    // -- Handler / HandlerService tests --------------------------------------
+
+    #[tokio::test]
+    async fn zero_arg_handler() {
+        async fn greet() -> &'static str {
+            "hello"
+        }
+
+        let response = greet().await.into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn handler_service_call() -> Result<(), Infallible> {
+        async fn answer() -> &'static str {
+            "forty-two"
+        }
+
+        let mut service = HandlerService::new(answer, ());
+        let request = http::Request::new(empty_body());
+        let response = service.call(request).await?;
+        assert_eq!(response.status(), StatusCode::OK);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn handler_service_oneshot() -> Result<(), Infallible> {
+        async fn ping() -> &'static str {
+            "pong"
+        }
+
+        let service = HandlerService::new(ping, ());
+        let request = http::Request::new(empty_body());
+        let response = tower::ServiceExt::oneshot(service, request).await?;
+        assert_eq!(response.status(), StatusCode::OK);
+        Ok(())
+    }
 }

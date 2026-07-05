@@ -13,3 +13,6 @@ http-body = { workspace = true }
 http-body-util = { workspace = true }
 bytes = { workspace = true }
 tower = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

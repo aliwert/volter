@@ -19,8 +19,11 @@
     clippy::indexing_slicing
 )]
 
-/// Core traits and types.
-pub use volter_core::{FromRequest, FromRequestParts, Handler, IntoResponse, Request, Response};
+/// Core traits, types, and adapters.
+pub use volter_core::{
+    Body, BoxBody, BoxError, FromRequest, FromRequestParts, Handler, HandlerService, IntoResponse,
+    Request, Response,
+};
 
 /// Router for request routing.
 pub use volter_router::Router;
