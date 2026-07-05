@@ -14,6 +14,10 @@ use volter_core::Handler;
 /// `GET`.  Other methods on the same path receive a `405 Method Not Allowed`
 /// response.
 ///
+/// The type parameter `S` is inferred from the handler: a zero-argument
+/// handler produces a `MethodRouter<()>`; a handler that takes
+/// `State<AppState>` produces a `MethodRouter<AppState>`.
+///
 /// # Example
 ///
 /// ```rust
@@ -25,10 +29,11 @@ use volter_core::Handler;
 ///
 /// let app: Router = Router::new().route("/", get(index));
 /// ```
-pub fn get<H, T>(handler: H) -> MethodRouter
+pub fn get<H, T, S>(handler: H) -> MethodRouter<S>
 where
-    H: Handler<T, ()>,
+    H: Handler<T, S> + Sync,
     T: 'static,
+    S: Clone + Send + 'static,
 {
     let mut router = MethodRouter::new();
     router.get(handler);

@@ -9,6 +9,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 use crate::body::{Request, Response};
+use crate::extract::FromRequestParts;
 use crate::into_response::IntoResponse;
 
 /// A request handler: any async function whose arguments are extractors,
@@ -45,11 +46,40 @@ where
     }
 }
 
-// TODO(v0.1): add blanket Handler impls for 1+ `FromRequestParts`
-// extractors.  This requires a named future type that chains extraction
-// with the handler call, since we cannot use `async` blocks inside a
-// blanket impl that also needs to name a concrete future type for the
-// associated `Handler::Future`.  The approach used in axum is a
-// `HandlerFuture<H, T, S, Fut>` struct that first calls each
-// `FromRequestParts::from_request_parts`, then passes the extracted
-// values to the handler.  That will be the next PR.
+// ---------------------------------------------------------------------------
+// Blanket impl for single-extractor handlers
+// ---------------------------------------------------------------------------
+
+/// Blanket impl for handlers that take a single extractor argument.
+///
+/// Any async fn `F: Fn(E) -> Fut` where `Fut: Future<Output = R>`,
+/// `R: IntoResponse`, and `E: FromRequestParts<S>` is a valid handler.
+///
+/// Unlike the zero-argument impl which ignores the request entirely, this
+/// impl splits the request into parts, calls [`FromRequestParts`] to
+/// extract `E`, and only then invokes the handler.  The body is dropped
+/// (single-extractor handlers never consume the body by definition).
+///
+/// This covers built-in extractors (`State<S>`, `Path<T>`) and any
+/// third-party type that implements [`FromRequestParts<S>`].
+impl<F, Fut, R, S, E> Handler<(E,), S> for F
+where
+    F: Fn(E) -> Fut + Clone + Send + 'static,
+    Fut: Future<Output = R> + Send + 'static,
+    R: IntoResponse,
+    S: Clone + Send + 'static,
+    E: FromRequestParts<S> + Send + 'static,
+{
+    type Future = Pin<Box<dyn Future<Output = Response> + Send>>;
+
+    fn call(self, req: Request, state: S) -> Self::Future {
+        Box::pin(async move {
+            let (mut parts, _body) = req.into_parts();
+            let extracted = match E::from_request_parts(&mut parts, &state).await {
+                Ok(v) => v,
+                Err(rejection) => return rejection.into_response(),
+            };
+            (self)(extracted).await.into_response()
+        })
+    }
+}

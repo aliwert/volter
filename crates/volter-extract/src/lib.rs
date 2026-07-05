@@ -13,7 +13,6 @@
 //!   HTTP status (400 / 415 / 422 respectively).
 //! - `Query<T>` — parses the URL query string via `serde_urlencoded`.
 //! - `Path<T>` — typed path parameters from the router's matched segments.
-//! - `State<T>` — typed application state, see `ARCHITECTURE.md`.
 //! - `Extension<T>` — request-scoped values injected by middleware.
 //! - `TypedHeader<T>` — a single strongly-typed header value.
 //!
@@ -21,8 +20,12 @@
 //! on malformed input (see `RULES.md` #1) — a bad `Content-Length` header
 //! or truncated body is user input, not a programmer error.
 //!
-//! TODO(v0.1): implement `Json`, `Query`, `Path`, `State` first — these
+//! TODO(v0.1): implement `Json`, `Query`, `Extension` first — these
 //! cover the large majority of real handlers.
+//!
+//! [`State<T>`](volter_core::State) is defined in `volter-core` alongside
+//! the `FromRequestParts` trait and the `Handler` blanket impl, so it is
+//! re-exported here for convenience.
 
 #![deny(missing_docs)]
 #![deny(
@@ -31,6 +34,11 @@
     clippy::panic,
     clippy::indexing_slicing
 )]
+
+mod path;
+
+pub use path::{Path, PathRejection};
+pub use volter_core::State;
 
 /// Extracts a typed JSON body from a request.
 ///
@@ -43,20 +51,6 @@ pub struct Json<T>(pub T);
 /// Parses the query string via `serde_urlencoded` into type `T`.
 /// TODO(v0.1): implement `FromRequestParts` for `Query<T>`.
 pub struct Query<T>(pub T);
-
-/// Extracts typed path parameters from the matched route.
-///
-/// Parses named path segments (e.g. `:id`) into type `T`.
-/// TODO(v0.1): implement `FromRequestParts` for `Path<T>`.
-pub struct Path<T>(pub T);
-
-/// Extracts typed application state.
-///
-/// The state is set once via `Router::with_state(state)` and is checked
-/// at compile time — a handler asking for `State<Foo>` on a router never
-/// given `Foo` fails to compile.
-/// TODO(v0.1): implement `FromRequestParts` for `State<T>`.
-pub struct State<T>(pub T);
 
 /// Extracts a request-scoped value injected by middleware.
 ///

@@ -14,3 +14,5 @@ tower = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
+serde = { workspace = true }
+volter-extract = { workspace = true }

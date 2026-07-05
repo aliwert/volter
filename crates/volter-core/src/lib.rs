@@ -26,12 +26,14 @@ mod extract;
 mod handler;
 mod into_response;
 mod service;
+mod url_params;
 
 pub use body::{empty_body, full_body, Body, BoxBody, BoxError, Request, Response};
-pub use extract::{FromRequest, FromRequestParts};
+pub use extract::{FromRequest, FromRequestParts, State};
 pub use handler::Handler;
 pub use into_response::IntoResponse;
 pub use service::HandlerService;
+pub use url_params::UrlParams;
 
 /// Re-export of the `http` crate so downstream users can refer to common
 /// HTTP types ( [`http::StatusCode`], [`http::Method`], etc.) through

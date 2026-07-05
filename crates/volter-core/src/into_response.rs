@@ -66,6 +66,15 @@ impl IntoResponse for () {
     }
 }
 
+/// `Infallible` can never be constructed, so this impl can never be called.
+/// It exists so that [`State`](crate::extract::State) can use `Infallible` as
+/// its rejection type.
+impl IntoResponse for std::convert::Infallible {
+    fn into_response(self) -> Response {
+        match self {}
+    }
+}
+
 /// `Result<T, E>` delegates to either the `Ok` or the `Err` branch, both of
 /// which must implement [`IntoResponse`].
 ///

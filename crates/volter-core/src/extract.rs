@@ -40,3 +40,37 @@ pub trait FromRequest<S, B = BoxBody>: Sized {
     /// Perform the extraction, consuming the request.
     fn from_request(req: http::Request<B>, state: &S) -> Self::Future;
 }
+
+/// Extract typed application state.
+///
+/// `State<T>` extracts a value of type `T` from the router's application
+/// state.  The state is cloned on each request — it must implement
+/// [`Clone`].
+///
+/// The extraction always succeeds (the rejection type is [`Infallible`])
+/// because the state type is checked at compile time: a handler that asks
+/// for `State<Foo>` on a router configured with `Bar` will not compile.
+///
+/// # Example
+///
+/// ```rust
+/// use volter_core::{State, Handler};
+///
+/// #[derive(Clone)]
+/// struct AppState { counter: u64 }
+///
+/// async fn handler(State(state): State<AppState>) -> String {
+///     format!("counter: {}", state.counter)
+/// }
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct State<T>(pub T);
+
+impl<S: Clone + Send + 'static> FromRequestParts<S> for State<S> {
+    type Rejection = std::convert::Infallible;
+    type Future = std::future::Ready<Result<Self, Self::Rejection>>;
+
+    fn from_request_parts(_parts: &mut http::request::Parts, state: &S) -> Self::Future {
+        std::future::ready(Ok(State(state.clone())))
+    }
+}

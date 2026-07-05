@@ -20,6 +20,7 @@
 
 mod error;
 mod method_router;
+mod pattern;
 mod route;
 mod router;
 

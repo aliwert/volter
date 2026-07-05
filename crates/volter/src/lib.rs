@@ -29,7 +29,10 @@ pub use volter_core::{
 pub use volter_router::{get, MethodRouter, Router};
 
 /// Standard extractors.
-pub use volter_extract::{Extension, Json, Path, Query, State};
+pub use volter_extract::{Extension, Json, Path, Query};
+
+/// Typed application state extractor (defined in `volter-core`).
+pub use volter_core::State;
 
 /// Built-in middleware layers.
 pub use volter_middleware::{Cors, Timeout, Trace};
