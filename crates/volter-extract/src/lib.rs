@@ -11,10 +11,10 @@
 //!   JSON syntax/shape (400), and body read errors (500).
 //! - [`Query<T>`] — parses the URL query string via `serde_urlencoded`.
 //! - [`Path<T>`] — typed path parameters from the router's matched segments.
+//! - [`Extension<T>`] — request-scoped values injected by middleware.
 //! - [`State<T>`](volter_core::State) — typed application state.
 //!
 //! Planned extractors:
-//! - `Extension<T>` — request-scoped values injected by middleware.
 //! - `TypedHeader<T>` — a single strongly-typed header value.
 //!
 //! Every rejection here must implement `IntoResponse` and must never panic
@@ -33,18 +33,13 @@
     clippy::indexing_slicing
 )]
 
+mod extension;
 mod json;
 mod path;
 mod query;
 
+pub use extension::{Extension, ExtensionRejection};
 pub use json::{Json, JsonRejection};
 pub use path::{Path, PathRejection};
 pub use query::{Query, QueryRejection};
 pub use volter_core::State;
-
-/// Extracts a request-scoped value injected by middleware.
-///
-/// Unlike `State`, a missing `Extension` is a runtime rejection since
-/// middleware ordering cannot always be verified statically.
-/// TODO(v0.1): implement `FromRequestParts` for `Extension<T>`.
-pub struct Extension<T>(pub T);

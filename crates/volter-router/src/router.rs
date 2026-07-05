@@ -745,4 +745,164 @@ mod tests {
             Some("application/json")
         );
     }
+
+    // -- Extension extractor tests -------------------------------------------
+
+    #[tokio::test]
+    async fn extension_successful_extraction() {
+        #[derive(Debug, Clone, PartialEq)]
+        struct User {
+            name: String,
+        }
+
+        async fn handler(
+            volter_extract::Extension(user): volter_extract::Extension<User>,
+        ) -> String {
+            user.name
+        }
+
+        let mut app = Router::new().route("/profile", get(handler));
+        let request = http::Request::builder()
+            .method(http::Method::GET)
+            .uri("/profile")
+            .extension(User {
+                name: "Alice".into(),
+            })
+            .body(empty_body())
+            .unwrap();
+        let response = app.call(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn extension_missing_returns_500() {
+        #[derive(Debug, Clone, PartialEq)]
+        struct User {
+            name: String,
+        }
+
+        async fn handler(
+            volter_extract::Extension(_user): volter_extract::Extension<User>,
+        ) -> &'static str {
+            "should not reach here"
+        }
+
+        let mut app = Router::new().route("/profile", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/profile"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[tokio::test]
+    async fn extension_multiple_requests_different_values() {
+        #[derive(Debug, Clone, PartialEq)]
+        struct User {
+            name: String,
+        }
+
+        async fn handler(
+            volter_extract::Extension(user): volter_extract::Extension<User>,
+        ) -> String {
+            user.name
+        }
+
+        let mut app = Router::new().route("/profile", get(handler));
+
+        for name in &["Alice", "Bob", "Charlie"] {
+            let request = http::Request::builder()
+                .method(http::Method::GET)
+                .uri("/profile")
+                .extension(User {
+                    name: name.to_string(),
+                })
+                .body(empty_body())
+                .unwrap();
+            let response = app.call(request).await.unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+        }
+    }
+
+    #[tokio::test]
+    async fn extension_state_still_works() {
+        #[derive(Clone)]
+        struct AppState {
+            counter: u64,
+        }
+
+        async fn handler(volter_core::State(state): volter_core::State<AppState>) -> String {
+            format!("counter: {}", state.counter)
+        }
+
+        let mut app = Router::with_state(AppState { counter: 42 }).route("/state", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/state"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn extension_path_still_works() {
+        #[derive(serde::Deserialize)]
+        struct IdQuery {
+            id: u64,
+        }
+
+        async fn handler(volter_extract::Path(params): volter_extract::Path<IdQuery>) -> String {
+            format!("id: {}", params.id)
+        }
+
+        let mut app = Router::new().route("/items/:id", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/items/7"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn extension_query_still_works() {
+        #[derive(serde::Deserialize)]
+        struct SearchQuery {
+            q: String,
+        }
+
+        async fn handler(
+            volter_extract::Query(query): volter_extract::Query<SearchQuery>,
+        ) -> String {
+            format!("q={}", query.q)
+        }
+
+        let mut app = Router::new().route("/search", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/search?q=hello+world"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn extension_json_still_works() {
+        #[derive(serde::Deserialize)]
+        struct CreateUser {
+            name: String,
+            age: u8,
+        }
+
+        async fn handler(
+            volter_extract::Json(payload): volter_extract::Json<CreateUser>,
+        ) -> String {
+            format!("{} is {}", payload.name, payload.age)
+        }
+
+        let mut app = Router::new().route("/users", get(handler));
+        let body = br#"{"name":"Alice","age":30}"#;
+        let response = app
+            .call(json_request(http::Method::GET, "/users", body))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
 }
