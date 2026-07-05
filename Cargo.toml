@@ -11,6 +11,8 @@ members = [
     "crates/volter-testing",
     "crates/volter-cli",
     "examples/hello-world",
+    "examples/path-params",
+    "examples/query-params",
 ]
 
 [workspace.package]

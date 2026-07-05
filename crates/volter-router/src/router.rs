@@ -438,4 +438,152 @@ mod tests {
             .unwrap();
         assert_eq!(user_resp.status(), StatusCode::OK);
     }
+
+    // -- Query extractor tests -----------------------------------------------
+
+    #[tokio::test]
+    async fn query_single_u32_param() {
+        #[derive(serde::Deserialize)]
+        struct PageQuery {
+            page: u32,
+        }
+
+        async fn handler(volter_extract::Query(query): volter_extract::Query<PageQuery>) -> String {
+            format!("Page {}", query.page)
+        }
+
+        let mut app = Router::new().route("/users", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/users?page=1"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn query_single_string_param() {
+        #[derive(serde::Deserialize)]
+        struct NameQuery {
+            name: String,
+        }
+
+        async fn handler(volter_extract::Query(query): volter_extract::Query<NameQuery>) -> String {
+            format!("Hello {}", query.name)
+        }
+
+        let mut app = Router::new().route("/users", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/users?name=alice"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn query_multiple_params() {
+        #[derive(serde::Deserialize)]
+        struct UsersQuery {
+            page: u32,
+            search: String,
+        }
+
+        async fn handler(
+            volter_extract::Query(query): volter_extract::Query<UsersQuery>,
+        ) -> String {
+            format!("Page {}, search={}", query.page, query.search)
+        }
+
+        let mut app = Router::new().route("/users", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/users?page=2&search=rust"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn query_optional_fields() {
+        #[derive(serde::Deserialize)]
+        struct UsersQuery {
+            page: u32,
+            search: Option<String>,
+        }
+
+        async fn handler(
+            volter_extract::Query(query): volter_extract::Query<UsersQuery>,
+        ) -> String {
+            let search = query.search.as_deref().unwrap_or("none");
+            format!("Page {}, search={}", query.page, search)
+        }
+
+        let mut app = Router::new().route("/users", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/users?page=1"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn query_missing_query_string() {
+        #[derive(serde::Deserialize)]
+        struct UsersQuery {
+            #[serde(default)]
+            page: u32,
+            search: Option<String>,
+        }
+
+        async fn handler(
+            volter_extract::Query(query): volter_extract::Query<UsersQuery>,
+        ) -> String {
+            format!("Page {}, search={:?}", query.page, query.search)
+        }
+
+        let mut app = Router::new().route("/users", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/users"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn query_invalid_integer_returns_400() {
+        #[derive(serde::Deserialize)]
+        struct PageQuery {
+            page: u32,
+        }
+
+        async fn handler(volter_extract::Query(query): volter_extract::Query<PageQuery>) -> String {
+            format!("Page {}", query.page)
+        }
+
+        let mut app = Router::new().route("/users", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/users?page=abc"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn query_url_encoding() {
+        #[derive(serde::Deserialize)]
+        struct SearchQuery {
+            q: String,
+        }
+
+        async fn handler(
+            volter_extract::Query(query): volter_extract::Query<SearchQuery>,
+        ) -> String {
+            format!("q={}", query.q)
+        }
+
+        let mut app = Router::new().route("/search", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/search?q=hello+world"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
 }
