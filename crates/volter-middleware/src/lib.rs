@@ -23,4 +23,28 @@
 //! milestones).
 
 #![deny(missing_docs)]
-#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
+
+/// A [`tower::Layer`] that adds tracing spans per request.
+///
+/// Thin, opinionated wrapper over `tower_http::trace::TraceLayer`.
+/// TODO(v0.1): implement as a proper `tower::Layer`.
+pub struct Trace;
+
+/// A [`tower::Layer`] that enforces a per-request timeout.
+///
+/// Returns a proper HTTP 408 / 504 response on expiry instead of
+/// dropping the connection.
+/// TODO(v0.1): implement as a proper `tower::Layer`.
+pub struct Timeout;
+
+/// A [`tower::Layer`] that sets CORS headers on responses.
+///
+/// Thin, opinionated wrapper over `tower_http::cors::CorsLayer`.
+/// TODO(v0.1): implement as a proper `tower::Layer`.
+pub struct Cors;

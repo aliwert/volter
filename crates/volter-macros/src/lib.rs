@@ -19,3 +19,35 @@
 //!
 //! TODO(v0.2): implement the two derive macros above once `volter-core`'s
 //! trait signatures are stable.
+
+#![deny(missing_docs)]
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
+
+use proc_macro::TokenStream;
+
+/// Derive macro for `volter_core::FromRequestParts`.
+///
+/// Generates an implementation of `FromRequestParts` for a struct where
+/// each field itself implements `FromRequestParts`.
+///
+/// TODO(v0.2): implement the actual derive logic.
+#[proc_macro_derive(FromRequestParts)]
+pub fn derive_from_request_parts(_input: TokenStream) -> TokenStream {
+    TokenStream::default()
+}
+
+/// Derive macro for `volter_core::FromRequest`.
+///
+/// Generates an implementation of `FromRequest` for a struct with a single
+/// body-consuming field that itself implements `FromRequest`.
+///
+/// TODO(v0.2): implement the actual derive logic.
+#[proc_macro_derive(FromRequest)]
+pub fn derive_from_request(_input: TokenStream) -> TokenStream {
+    TokenStream::default()
+}

@@ -16,4 +16,16 @@
 //! `PROJECT.md` milestones).
 
 #![deny(missing_docs)]
-#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
+
+/// An extractor for WebSocket upgrades.
+///
+/// Implements `FromRequestParts` — a handler takes it as an argument
+/// and returns a value describing how to handle the upgraded connection.
+/// TODO(v0.2): implement the upgrade handshake and connection wrapper.
+pub struct WebSocketUpgrade;

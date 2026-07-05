@@ -13,7 +13,12 @@
 //! — expect to revisit `Send`/object-safety bounds here first.
 
 #![deny(missing_docs)]
-#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::future::Future;
 

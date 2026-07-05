@@ -23,4 +23,37 @@
 //! "Routing").
 
 #![deny(missing_docs)]
-#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
+
+use std::marker::PhantomData;
+
+/// A Volter router.
+///
+/// Maps incoming HTTP requests to handlers based on path patterns and
+/// HTTP methods. Implements `tower::Service` so it composes with the
+/// entire `tower`/`tower-http` middleware ecosystem.
+///
+/// The type parameter `S` represents the shared application state type.
+pub struct Router<S = ()> {
+    _state: PhantomData<fn() -> S>,
+}
+
+impl<S> Router<S> {
+    /// Create a new empty router.
+    pub fn new() -> Self {
+        Self {
+            _state: PhantomData,
+        }
+    }
+}
+
+impl<S> Default for Router<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}

@@ -25,4 +25,42 @@
 //! cover the large majority of real handlers.
 
 #![deny(missing_docs)]
-#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
+
+/// Extracts a typed JSON body from a request.
+///
+/// Wraps a deserialized value of type `T`.
+/// TODO(v0.1): implement `FromRequest` for `Json<T>`.
+pub struct Json<T>(pub T);
+
+/// Extracts typed query parameters from the URL query string.
+///
+/// Parses the query string via `serde_urlencoded` into type `T`.
+/// TODO(v0.1): implement `FromRequestParts` for `Query<T>`.
+pub struct Query<T>(pub T);
+
+/// Extracts typed path parameters from the matched route.
+///
+/// Parses named path segments (e.g. `:id`) into type `T`.
+/// TODO(v0.1): implement `FromRequestParts` for `Path<T>`.
+pub struct Path<T>(pub T);
+
+/// Extracts typed application state.
+///
+/// The state is set once via `Router::with_state(state)` and is checked
+/// at compile time — a handler asking for `State<Foo>` on a router never
+/// given `Foo` fails to compile.
+/// TODO(v0.1): implement `FromRequestParts` for `State<T>`.
+pub struct State<T>(pub T);
+
+/// Extracts a request-scoped value injected by middleware.
+///
+/// Unlike `State`, a missing `Extension` is a runtime rejection since
+/// middleware ordering cannot always be verified statically.
+/// TODO(v0.1): implement `FromRequestParts` for `Extension<T>`.
+pub struct Extension<T>(pub T);
