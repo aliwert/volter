@@ -19,3 +19,4 @@ ulid = { workspace = true }
 [dev-dependencies]
 volter-router = { workspace = true }
 volter-extract = { workspace = true }
+http = { workspace = true }

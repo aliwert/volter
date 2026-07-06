@@ -21,6 +21,7 @@ members = [
     "examples/timeout",
     "examples/catch-panic",
     "examples/request-id",
+    "examples/cors",
 ]
 
 [workspace.package]

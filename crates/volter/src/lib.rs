@@ -50,12 +50,16 @@ pub use server::{serve, serve_with};
 /// [`CatchPanicLayer`] catches panics from handlers and returns `500 Internal
 /// Server Error`.
 ///
+/// [`CorsLayer`] adds Cross-Origin Resource Sharing headers with permissive
+/// or fine-grained configuration.
+///
 /// [`RequestIdLayer`] assigns every request a unique [`RequestId`] and
 /// sets the `X-Request-Id` response header.
+/// or fine-grained configuration.
 ///
 /// All are used via [`Router::layer()`]:
 pub use volter_middleware::{
-    CatchPanicLayer, Cors, RequestId, RequestIdLayer, TimeoutLayer, TraceLayer,
+    CatchPanicLayer, CorsLayer, RequestId, RequestIdLayer, TimeoutLayer, TraceLayer,
 };
 
 /// Derive macros for extractors.

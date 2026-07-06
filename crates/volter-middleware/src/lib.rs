@@ -15,9 +15,10 @@
 //! - [`RequestIdLayer`] — assigns every request a unique [`RequestId`]
 //!   (backed by a ULID), injects it into request extensions, and sets the
 //!   `X-Request-Id` response header.
+//! - [`CorsLayer`] — permissive or configurable CORS with full preflight
+//!   support.
 //!
 //! Planned:
-//! - `CorsLayer` — thin, opinionated wrapper over `tower_http::cors`.
 //! - `RequestBodyLimitLayer` — reject oversized bodies before they're fully
 //!   buffered.
 //!   TODO(v0.3): rate limiting, connection limits (see `PROJECT.md`
@@ -32,17 +33,13 @@
 )]
 
 mod catch_panic;
+mod cors;
 mod request_id;
 mod timeout;
 mod trace;
 
 pub use catch_panic::CatchPanicLayer;
+pub use cors::CorsLayer;
 pub use request_id::{RequestId, RequestIdLayer};
 pub use timeout::TimeoutLayer;
 pub use trace::TraceLayer;
-
-/// A [`tower::Layer`] that sets CORS headers on responses.
-///
-/// Thin, opinionated wrapper over `tower_http::cors::CorsLayer`.
-/// TODO(v0.1): implement as a proper `tower::Layer`.
-pub struct Cors;
