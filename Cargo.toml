@@ -20,6 +20,7 @@ members = [
     "examples/tracing",
     "examples/timeout",
     "examples/catch-panic",
+    "examples/request-id",
 ]
 
 [workspace.package]
@@ -49,6 +50,7 @@ thiserror = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 bytes = "1"
+ulid = "1"
 
 # Internal workspace crates, referenced by version + path so `cargo publish`
 # still works once each crate is ready to ship independently.

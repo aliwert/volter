@@ -50,8 +50,13 @@ pub use server::{serve, serve_with};
 /// [`CatchPanicLayer`] catches panics from handlers and returns `500 Internal
 /// Server Error`.
 ///
+/// [`RequestIdLayer`] assigns every request a unique [`RequestId`] and
+/// sets the `X-Request-Id` response header.
+///
 /// All are used via [`Router::layer()`]:
-pub use volter_middleware::{CatchPanicLayer, Cors, TimeoutLayer, TraceLayer};
+pub use volter_middleware::{
+    CatchPanicLayer, Cors, RequestId, RequestIdLayer, TimeoutLayer, TraceLayer,
+};
 
 /// Derive macros for extractors.
 #[cfg(feature = "macros")]

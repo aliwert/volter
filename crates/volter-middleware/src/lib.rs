@@ -12,6 +12,9 @@
 //! - [`CatchPanicLayer`] — catches panics from handlers and returns a `500
 //!   Internal Server Error`. Safety net, not a substitute for proper error
 //!   handling.
+//! - [`RequestIdLayer`] — assigns every request a unique [`RequestId`]
+//!   (backed by a ULID), injects it into request extensions, and sets the
+//!   `X-Request-Id` response header.
 //!
 //! Planned:
 //! - `CorsLayer` — thin, opinionated wrapper over `tower_http::cors`.
@@ -29,10 +32,12 @@
 )]
 
 mod catch_panic;
+mod request_id;
 mod timeout;
 mod trace;
 
 pub use catch_panic::CatchPanicLayer;
+pub use request_id::{RequestId, RequestIdLayer};
 pub use timeout::TimeoutLayer;
 pub use trace::TraceLayer;
 
