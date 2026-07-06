@@ -12,3 +12,7 @@ volter-core = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+volter-router = { workspace = true }

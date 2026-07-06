@@ -1,13 +1,15 @@
 //! Built-in middleware for volter, expressed as `tower::Layer`s.
 //!
 //! Anything here composes with any other `tower`/`tower-http` layer — see
-//! `ARCHITECTURE.md` → "Middleware model". Nothing below is implemented
-//! yet.
+//! `ARCHITECTURE.md` → "Middleware model".
 //!
-//! Planned middleware:
+//! Implemented:
 //!
-//! - `TraceLayer` — request/response tracing spans (thin, opinionated
-//!   wrapper over `tower_http::trace`).
+//! - [`TraceLayer`] — per-request tracing spans (method, path, status,
+//!   latency).
+//!
+//! Planned:
+//!
 //! - `TimeoutLayer` — per-request timeout, returning a proper HTTP
 //!   response (not a dropped connection) on expiry.
 //! - `CorsLayer` — thin, opinionated wrapper over `tower_http::cors`.
@@ -18,7 +20,7 @@
 //!   safety net, not a substitute for `RULES.md` #1 — panics should not be
 //!   reachable from user input in the first place.
 //!
-//! TODO(v0.1): `TraceLayer`, `TimeoutLayer`, `CatchPanicLayer`.
+//! TODO(v0.1): `TimeoutLayer`, `CatchPanicLayer`.
 //! TODO(v0.3): rate limiting, connection limits (see `PROJECT.md`
 //! milestones).
 
@@ -30,11 +32,9 @@
     clippy::indexing_slicing
 )]
 
-/// A [`tower::Layer`] that adds tracing spans per request.
-///
-/// Thin, opinionated wrapper over `tower_http::trace::TraceLayer`.
-/// TODO(v0.1): implement as a proper `tower::Layer`.
-pub struct Trace;
+mod trace;
+
+pub use trace::TraceLayer;
 
 /// A [`tower::Layer`] that enforces a per-request timeout.
 ///

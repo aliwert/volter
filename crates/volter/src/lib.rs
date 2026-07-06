@@ -40,7 +40,10 @@ mod server;
 pub use server::{serve, serve_with};
 
 /// Built-in middleware layers.
-pub use volter_middleware::{Cors, Timeout, Trace};
+///
+/// [`TraceLayer`] adds per-request tracing spans (method, path, status,
+/// latency). Use it via `Router::layer()`:
+pub use volter_middleware::{Cors, Timeout, TraceLayer};
 
 /// Derive macros for extractors.
 #[cfg(feature = "macros")]

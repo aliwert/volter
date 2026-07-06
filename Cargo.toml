@@ -17,6 +17,7 @@ members = [
     "examples/extensions",
     "examples/multi-extractors",
     "examples/middleware",
+    "examples/tracing",
 ]
 
 [workspace.package]
