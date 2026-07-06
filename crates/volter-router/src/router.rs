@@ -16,7 +16,7 @@ use std::task::{Context, Poll};
 
 use http::Method;
 use tower::util::BoxCloneService;
-use tower::Service;
+use tower::{Layer, Service};
 
 use volter_core::{Request, Response, UrlParams};
 
@@ -50,6 +50,12 @@ struct ParamRoute {
 /// HTTP method.  Implements [`tower::Service`] so it composes with the
 /// entire `tower` / `tower-http` middleware ecosystem.
 ///
+/// Use [`Router::layer`] to wrap the router with [`tower::Layer`]
+/// middleware.  Routes registered **before** [`layer`](Router::layer) are
+/// wrapped by the layer; routes registered **after** are not.  Multiple
+/// [`layer`](Router::layer) calls compose in tower's onion model: the
+/// last call is outermost.
+///
 /// The type parameter `S` is the application state injected via
 /// [`with_state`](Router::with_state).  Zero-argument handlers (those that
 /// don't extract state) work with any `S`; handlers that extract
@@ -66,7 +72,7 @@ struct ParamRoute {
 /// [`with_state`](Router::with_state) **must** be called before routes that
 /// extract state.  See the [`Router`](Router) level docs for details.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```rust
 /// use volter_router::{Router, get};
@@ -77,10 +83,29 @@ struct ParamRoute {
 ///
 /// let app: Router = Router::new().route("/", get(index));
 /// ```
+///
+/// **With middleware:**
+///
+/// ```rust
+/// use volter_router::{Router, get};
+/// use tower::{ServiceBuilder, layer::layer_fn};
+///
+/// async fn handler() -> &'static str {
+///     "Hello, middleware!"
+/// }
+///
+/// let app = Router::new()
+///     .route("/", get(handler))
+///     .layer(ServiceBuilder::new().layer(layer_fn(|svc| svc)));
+/// ```
 pub struct Router<S = ()> {
     state: S,
     static_routes: HashMap<String, HashMap<Method, BoxCloneService<Request, Response, Infallible>>>,
     param_routes: Vec<ParamRoute>,
+    /// When set, [`call`] delegates to this layered service for routes
+    /// that existed when [`layer`](Router::layer) was called.
+    /// Routes added later skip the layer.
+    layered: Option<BoxCloneService<Request, Response, Infallible>>,
 }
 
 impl<S: Clone + Send + 'static> Router<S> {
@@ -92,6 +117,7 @@ impl<S: Clone + Send + 'static> Router<S> {
             state,
             static_routes: HashMap::new(),
             param_routes: Vec::new(),
+            layered: None,
         }
     }
 
@@ -124,6 +150,66 @@ impl<S: Clone + Send + 'static> Router<S> {
         }
         self
     }
+
+    /// Wrap the router with a [`tower::Layer`].
+    ///
+    /// Routes registered **before** this call are wrapped by the layer;
+    /// routes registered **after** are not.  Multiple `layer` calls compose
+    /// in tower's onion model — the last call is outermost.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use volter_router::{Router, get};
+    /// use tower::layer::layer_fn;
+    ///
+    /// async fn handler() -> &'static str {
+    ///     "Hello!"
+    /// }
+    ///
+    /// let app = Router::new()
+    ///     .route("/", get(handler))
+    ///     .layer(layer_fn(|svc| svc));
+    /// ```
+    pub fn layer<L>(mut self, layer: L) -> Self
+    where
+        L: Layer<BoxCloneService<Request, Response, Infallible>>,
+        L::Service:
+            Service<Request, Response = Response, Error = Infallible> + Clone + Send + 'static,
+        <L::Service as Service<Request>>::Future: Send,
+    {
+        if let Some(existing) = self.layered.take() {
+            // Already layered: wrap the existing layered service in another
+            // layer.  Routes in the existing layered service are from an
+            // earlier layer() call; post-layer routes are in the route tables.
+            let wrapped = layer.layer(existing);
+            self.layered = Some(BoxCloneService::new(wrapped));
+        } else {
+            // First layer: capture current routes into an inner service,
+            // wrap it, and clear route tables so future routes are not
+            // accidentally double-wrapped.
+            let inner = self.build_inner_service();
+            let wrapped = layer.layer(inner);
+            self.static_routes = HashMap::new();
+            self.param_routes = Vec::new();
+            self.layered = Some(BoxCloneService::new(wrapped));
+        }
+        self
+    }
+
+    /// Build a [`BoxCloneService`] that dispatches using the current route
+    /// tables.  Used internally by [`layer`](Router::layer) to snapshot the
+    /// pre-layer routes.
+    fn build_inner_service(&self) -> BoxCloneService<Request, Response, Infallible>
+    where
+        S: Clone + Send + 'static,
+    {
+        BoxCloneService::new(InnerRouter {
+            state: self.state.clone(),
+            static_routes: self.static_routes.clone(),
+            param_routes: self.param_routes.clone(),
+        })
+    }
 }
 
 impl Router<()> {
@@ -147,6 +233,7 @@ impl<S: Clone> Clone for Router<S> {
             state: self.state.clone(),
             static_routes: self.static_routes.clone(),
             param_routes: self.param_routes.clone(),
+            layered: self.layered.clone(),
         }
     }
 }
@@ -168,12 +255,11 @@ impl<S: Clone + Send + 'static> Service<Request> for Router<S> {
         let path = req.uri().path().to_owned();
         let method = req.method().clone();
 
-        // 1. Try static routes (exact match, O(1)).
+        // 1. Try post-layer routes (routes added after the most recent
+        //    layer() call — these are NOT wrapped by any layer).
         if let Some(services) = self.static_routes.get(&path) {
             return dispatch_services(services, method, req);
         }
-
-        // 2. Try parameterized routes (linear scan).
         for param_route in &self.param_routes {
             if let Some(params) = param_route.pattern.matches(&path) {
                 let mut req = req;
@@ -182,7 +268,64 @@ impl<S: Clone + Send + 'static> Service<Request> for Router<S> {
             }
         }
 
-        // 3. No route matched.
+        // 2. If no post-layer route matched, delegate to the layered
+        //    service (which wraps routes that existed when layer() was
+        //    called).
+        if let Some(ref mut svc) = self.layered {
+            return svc.call(req);
+        }
+
+        // 3. No route matched at all.
+        Box::pin(async move { Ok(not_found_response()) })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// InnerRouter — dispatch engine used by the first layer() call
+// ---------------------------------------------------------------------------
+
+/// A snapshot of the router's route tables at the time
+/// [`Router::layer`] was first called.  Routes registered before the
+/// first `layer()` call are dispatched through this inner service, which
+/// is itself wrapped by the middleware layers.
+///
+/// Note: `S` is unused by the dispatch itself (each [`BoxCloneService`]
+/// already carries the finalised state), but the type parameter is kept so
+/// that `Layer` bounds remain consistent with [`Router`]'s generic
+/// parameter.
+#[derive(Clone)]
+struct InnerRouter<S> {
+    #[allow(dead_code)]
+    state: S,
+    static_routes: HashMap<String, HashMap<Method, BoxCloneService<Request, Response, Infallible>>>,
+    param_routes: Vec<ParamRoute>,
+}
+
+impl<S: Clone + Send + 'static> Service<Request> for InnerRouter<S> {
+    type Response = Response;
+    type Error = Infallible;
+    type Future = BoxedFuture;
+
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: Request) -> Self::Future {
+        let path = req.uri().path().to_owned();
+        let method = req.method().clone();
+
+        if let Some(services) = self.static_routes.get(&path) {
+            return dispatch_services(services, method, req);
+        }
+
+        for param_route in &self.param_routes {
+            if let Some(params) = param_route.pattern.matches(&path) {
+                let mut req = req;
+                req.extensions_mut().insert(UrlParams(params));
+                return dispatch_services(&param_route.services, method, req);
+            }
+        }
+
         Box::pin(async move { Ok(not_found_response()) })
     }
 }
@@ -1210,6 +1353,373 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    // -- Middleware tests ----------------------------------------------------
+
+    /// A boxed, cloneable, type-erased inner service — the concrete type
+    /// that [`Router::layer`] hands to the middleware.
+    type Svc = BoxCloneService<Request, Response, Infallible>;
+
+    /// A [`Service`] wrapper that applies a boxed closure to every request.
+    /// Used by the test [`Layer`] impls below to avoid HRTB issues with
+    /// generic inner services.
+    #[derive(Clone)]
+    struct WrapSvc {
+        inner: Svc,
+        f: std::sync::Arc<
+            dyn Fn(
+                    Request,
+                    Svc,
+                ) -> std::pin::Pin<
+                    Box<dyn std::future::Future<Output = Result<Response, Infallible>> + Send>,
+                > + Send
+                + Sync,
+        >,
+    }
+
+    impl Service<Request> for WrapSvc {
+        type Response = Response;
+        type Error = Infallible;
+        type Future = std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>> + Send>,
+        >;
+
+        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn call(&mut self, req: Request) -> Self::Future {
+            let inner = self.inner.clone();
+            let f = self.f.clone();
+            Box::pin(async move { f(req, inner).await })
+        }
+    }
+
+    #[tokio::test]
+    async fn middleware_runs_before_handler() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        static RAN: AtomicBool = AtomicBool::new(false);
+
+        struct CheckLayer;
+
+        impl Layer<Svc> for CheckLayer {
+            type Service = WrapSvc;
+
+            fn layer(&self, inner: Svc) -> Self::Service {
+                WrapSvc {
+                    inner,
+                    f: std::sync::Arc::new(|req, mut inner| {
+                        Box::pin(async move {
+                            RAN.store(true, Ordering::SeqCst);
+                            inner.call(req).await
+                        })
+                    }),
+                }
+            }
+        }
+
+        RAN.store(false, Ordering::SeqCst);
+
+        async fn handler(volter_core::State(_): volter_core::State<()>) -> &'static str {
+            "ok"
+        }
+
+        let mut app = Router::with_state(())
+            .route("/", get(handler))
+            .layer(CheckLayer);
+        let response = app.call(request(http::Method::GET, "/")).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert!(RAN.load(Ordering::SeqCst), "middleware should have run");
+    }
+
+    #[tokio::test]
+    async fn middleware_inserts_extension() {
+        #[derive(Clone, Debug)]
+        struct MiddlewareValue(u64);
+
+        struct InjectLayer;
+
+        impl Layer<Svc> for InjectLayer {
+            type Service = WrapSvc;
+
+            fn layer(&self, inner: Svc) -> Self::Service {
+                WrapSvc {
+                    inner,
+                    f: std::sync::Arc::new(|mut req, mut inner| {
+                        Box::pin(async move {
+                            req.extensions_mut().insert(MiddlewareValue(42));
+                            inner.call(req).await
+                        })
+                    }),
+                }
+            }
+        }
+
+        async fn handler(
+            volter_extract::Extension(val): volter_extract::Extension<MiddlewareValue>,
+        ) -> String {
+            format!("val={}", val.0)
+        }
+
+        let mut app = Router::new().route("/", get(handler)).layer(InjectLayer);
+        let response = app.call(request(http::Method::GET, "/")).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn middleware_modifies_response() {
+        struct AddHeaderLayer {
+            key: http::HeaderName,
+            value: String,
+        }
+
+        impl Layer<Svc> for AddHeaderLayer {
+            type Service = WrapSvc;
+
+            fn layer(&self, inner: Svc) -> Self::Service {
+                let key = self.key.clone();
+                let value = self.value.clone();
+                WrapSvc {
+                    inner,
+                    f: std::sync::Arc::new(move |req, mut inner| {
+                        let key = key.clone();
+                        let value = value.clone();
+                        Box::pin(async move {
+                            let mut response = inner.call(req).await?;
+                            response.headers_mut().insert(key, value.parse().unwrap());
+                            Ok(response)
+                        })
+                    }),
+                }
+            }
+        }
+
+        async fn handler() -> &'static str {
+            "hello"
+        }
+
+        let mut app = Router::new()
+            .route("/", get(handler))
+            .layer(AddHeaderLayer {
+                key: http::header::HeaderName::from_static("x-custom"),
+                value: "yes".into(),
+            });
+
+        let response = app.call(request(http::Method::GET, "/")).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get("x-custom")
+                .and_then(|v| v.to_str().ok()),
+            Some("yes")
+        );
+    }
+
+    #[tokio::test]
+    async fn middleware_onion_ordering() {
+        use std::sync::atomic::{AtomicU8, Ordering};
+
+        static ORDER: AtomicU8 = AtomicU8::new(0);
+
+        struct TrackLayer {
+            id: u8,
+        }
+
+        impl Layer<Svc> for TrackLayer {
+            type Service = WrapSvc;
+
+            fn layer(&self, inner: Svc) -> Self::Service {
+                let id = self.id;
+                WrapSvc {
+                    inner,
+                    f: std::sync::Arc::new(move |req, mut inner| {
+                        Box::pin(async move {
+                            ORDER.store(id, Ordering::SeqCst);
+                            let result = inner.call(req).await;
+                            ORDER.store(id * 10, Ordering::SeqCst);
+                            result
+                        })
+                    }),
+                }
+            }
+        }
+
+        async fn handler() -> &'static str {
+            ORDER.store(100, Ordering::SeqCst);
+            "ok"
+        }
+
+        let mut app = Router::new()
+            .route("/", get(handler))
+            .layer(TrackLayer { id: 1 })
+            .layer(TrackLayer { id: 2 });
+
+        ORDER.store(0, Ordering::SeqCst);
+        let response = app.call(request(http::Method::GET, "/")).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(ORDER.load(Ordering::SeqCst), 20);
+    }
+
+    #[tokio::test]
+    async fn post_layer_routes_not_wrapped() {
+        struct WrapHeaderLayer;
+
+        impl Layer<Svc> for WrapHeaderLayer {
+            type Service = WrapSvc;
+
+            fn layer(&self, inner: Svc) -> Self::Service {
+                WrapSvc {
+                    inner,
+                    f: std::sync::Arc::new(|req, mut inner| {
+                        Box::pin(async move {
+                            let mut response = inner.call(req).await?;
+                            response.headers_mut().insert(
+                                http::header::HeaderName::from_static("x-wrapped"),
+                                "yes".parse().unwrap(),
+                            );
+                            Ok(response)
+                        })
+                    }),
+                }
+            }
+        }
+
+        async fn pre_layer() -> &'static str {
+            "pre"
+        }
+        async fn post_layer() -> &'static str {
+            "post"
+        }
+
+        let mut app = Router::new()
+            .route("/pre", get(pre_layer))
+            .layer(WrapHeaderLayer)
+            .route("/post", get(post_layer));
+
+        let pre_response = app.call(request(http::Method::GET, "/pre")).await.unwrap();
+        assert_eq!(pre_response.status(), StatusCode::OK);
+        assert_eq!(
+            pre_response
+                .headers()
+                .get("x-wrapped")
+                .and_then(|v| v.to_str().ok()),
+            Some("yes"),
+            "pre-layer route should be wrapped"
+        );
+
+        let post_response = app.call(request(http::Method::GET, "/post")).await.unwrap();
+        assert_eq!(post_response.status(), StatusCode::OK);
+        assert_eq!(
+            post_response
+                .headers()
+                .get("x-wrapped")
+                .and_then(|v| v.to_str().ok()),
+            None,
+            "post-layer route should NOT be wrapped"
+        );
+    }
+
+    #[tokio::test]
+    async fn middleware_with_state() {
+        #[derive(Clone)]
+        struct AppState {
+            value: u64,
+        }
+
+        struct StateHeaderLayer;
+
+        impl Layer<Svc> for StateHeaderLayer {
+            type Service = WrapSvc;
+
+            fn layer(&self, inner: Svc) -> Self::Service {
+                WrapSvc {
+                    inner,
+                    f: std::sync::Arc::new(|req, mut inner| {
+                        Box::pin(async move {
+                            let mut response = inner.call(req).await?;
+                            response.headers_mut().insert(
+                                http::header::HeaderName::from_static("x-state-middleware"),
+                                "active".parse().unwrap(),
+                            );
+                            Ok(response)
+                        })
+                    }),
+                }
+            }
+        }
+
+        async fn handler(volter_core::State(state): volter_core::State<AppState>) -> String {
+            format!("value: {}", state.value)
+        }
+
+        let mut app = Router::with_state(AppState { value: 99 })
+            .route("/", get(handler))
+            .layer(StateHeaderLayer);
+
+        let response = app.call(request(http::Method::GET, "/")).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get("x-state-middleware")
+                .and_then(|v| v.to_str().ok()),
+            Some("active")
+        );
+    }
+
+    #[tokio::test]
+    async fn middleware_with_extension_and_state() {
+        #[derive(Clone)]
+        struct AppState {
+            prefix: String,
+        }
+
+        #[derive(Clone, Debug)]
+        struct AuthUser {
+            name: String,
+        }
+
+        struct AuthLayer;
+
+        impl Layer<Svc> for AuthLayer {
+            type Service = WrapSvc;
+
+            fn layer(&self, inner: Svc) -> Self::Service {
+                WrapSvc {
+                    inner,
+                    f: std::sync::Arc::new(|mut req, mut inner| {
+                        Box::pin(async move {
+                            req.extensions_mut().insert(AuthUser {
+                                name: "Alice".into(),
+                            });
+                            inner.call(req).await
+                        })
+                    }),
+                }
+            }
+        }
+
+        async fn handler(
+            volter_core::State(state): volter_core::State<AppState>,
+            volter_extract::Extension(user): volter_extract::Extension<AuthUser>,
+        ) -> String {
+            format!("{}-{}", state.prefix, user.name)
+        }
+
+        let mut app = Router::with_state(AppState {
+            prefix: "user".into(),
+        })
+        .route("/profile", get(handler))
+        .layer(AuthLayer);
+
+        let response = app
+            .call(request(http::Method::GET, "/profile"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
     }
 
     #[tokio::test]
