@@ -1361,21 +1361,25 @@ mod tests {
     /// that [`Router::layer`] hands to the middleware.
     type Svc = BoxCloneService<Request, Response, Infallible>;
 
+    /// A boxed, cloneable closure that takes a request and inner service and
+    /// returns a future.
+    type WrapFn = std::sync::Arc<
+        dyn Fn(
+                Request,
+                Svc,
+            ) -> std::pin::Pin<
+                Box<dyn std::future::Future<Output = Result<Response, Infallible>> + Send>,
+            > + Send
+            + Sync,
+    >;
+
     /// A [`Service`] wrapper that applies a boxed closure to every request.
     /// Used by the test [`Layer`] impls below to avoid HRTB issues with
     /// generic inner services.
     #[derive(Clone)]
     struct WrapSvc {
         inner: Svc,
-        f: std::sync::Arc<
-            dyn Fn(
-                    Request,
-                    Svc,
-                ) -> std::pin::Pin<
-                    Box<dyn std::future::Future<Output = Result<Response, Infallible>> + Send>,
-                > + Send
-                + Sync,
-        >,
+        f: WrapFn,
     }
 
     impl Service<Request> for WrapSvc {

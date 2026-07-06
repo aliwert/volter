@@ -7,11 +7,10 @@
 //!
 //! - [`TraceLayer`] — per-request tracing spans (method, path, status,
 //!   latency).
+//! - [`TimeoutLayer`] — per-request timeout with a `408 Request Timeout`
+//!   response on expiry.
 //!
 //! Planned:
-//!
-//! - `TimeoutLayer` — per-request timeout, returning a proper HTTP
-//!   response (not a dropped connection) on expiry.
 //! - `CorsLayer` — thin, opinionated wrapper over `tower_http::cors`.
 //! - `RequestBodyLimitLayer` — reject oversized bodies before they're fully
 //!   buffered.
@@ -20,7 +19,7 @@
 //!   safety net, not a substitute for `RULES.md` #1 — panics should not be
 //!   reachable from user input in the first place.
 //!
-//! TODO(v0.1): `TimeoutLayer`, `CatchPanicLayer`.
+//! TODO(v0.1): `CatchPanicLayer`.
 //! TODO(v0.3): rate limiting, connection limits (see `PROJECT.md`
 //! milestones).
 
@@ -32,16 +31,11 @@
     clippy::indexing_slicing
 )]
 
+mod timeout;
 mod trace;
 
+pub use timeout::TimeoutLayer;
 pub use trace::TraceLayer;
-
-/// A [`tower::Layer`] that enforces a per-request timeout.
-///
-/// Returns a proper HTTP 408 / 504 response on expiry instead of
-/// dropping the connection.
-/// TODO(v0.1): implement as a proper `tower::Layer`.
-pub struct Timeout;
 
 /// A [`tower::Layer`] that sets CORS headers on responses.
 ///
