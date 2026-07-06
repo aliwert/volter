@@ -56,13 +56,16 @@ pub use server::{serve, serve_with};
 /// [`CompressionLayer`] compresses response bodies using `Accept-Encoding`
 /// negotiation (gzip, br, zstd, deflate).
 ///
+/// [`RequestBodyLimitLayer`] limits request body size and returns
+/// `413 Payload Too Large` when exceeded.
+///
 /// [`RequestIdLayer`] assigns every request a unique [`RequestId`] and
 /// sets the `X-Request-Id` response header.
 ///
 /// All are used via [`Router::layer()`]:
 pub use volter_middleware::{
-    CatchPanicLayer, CompressionLayer, CorsLayer, RequestId, RequestIdLayer, TimeoutLayer,
-    TraceLayer,
+    CatchPanicLayer, CompressionLayer, CorsLayer, RequestBodyLimitLayer, RequestId, RequestIdLayer,
+    TimeoutLayer, TraceLayer,
 };
 
 /// Derive macros for extractors.

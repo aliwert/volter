@@ -21,4 +21,6 @@ volter-router = { workspace = true }
 volter-extract = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
+bytes = { workspace = true }
+serde = { workspace = true }
 flate2 = "1"

@@ -23,6 +23,7 @@ members = [
     "examples/request-id",
     "examples/cors",
     "examples/compression",
+    "examples/body-limit",
 ]
 
 [workspace.package]

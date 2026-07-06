@@ -19,9 +19,11 @@
 //!   support.
 //! - [`CompressionLayer`] — compresses response bodies using
 //!   `Accept-Encoding` negotiation (gzip, br, zstd, deflate).
+//! - [`RequestBodyLimitLayer`] — limits request body size, returns
+//!   `413 Payload Too Large` when exceeded.
 //!
 //! Planned:
-//! - `RequestBodyLimitLayer` — reject oversized bodies before they're fully
+//! - rate limiting, connection limits (see `PROJECT.md` milestones).
 //!   buffered.
 //!   TODO(v0.3): rate limiting, connection limits (see `PROJECT.md`
 //!   milestones).
@@ -34,6 +36,7 @@
     clippy::indexing_slicing
 )]
 
+mod body_limit;
 mod catch_panic;
 mod compression;
 mod cors;
@@ -41,6 +44,7 @@ mod request_id;
 mod timeout;
 mod trace;
 
+pub use body_limit::RequestBodyLimitLayer;
 pub use catch_panic::CatchPanicLayer;
 pub use compression::CompressionLayer;
 pub use cors::CorsLayer;
