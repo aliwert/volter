@@ -4,12 +4,16 @@
 //! stored as a [`UrlParams`] extension, and then deserialized into the
 //! target type `T` by this extractor via [`serde::Deserialize`].
 
+use std::future::Future;
 use std::future::Ready;
+use std::pin::Pin;
 
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
-use volter_core::{FromRequestParts, IntoResponse, Response, UrlParams};
+use volter_core::{
+    BoxBody, FromRequest, FromRequestParts, IntoResponse, Request, Response, UrlParams,
+};
 
 // ---------------------------------------------------------------------------
 // PathRejection
@@ -151,5 +155,27 @@ impl<S, T: DeserializeOwned + Send> FromRequestParts<S> for Path<T> {
             .and_then(|params| deserialize_path_params::<T>(&params.0));
 
         std::future::ready(result.map(Path))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// FromRequest impl (body-consuming variant)
+// ---------------------------------------------------------------------------
+
+/// [`Path<T>`] also implements [`FromRequest`] so it can be the last
+/// argument in a multi-extractor handler tuple.  The body is split off
+/// and dropped.
+impl<S: Clone + Send + 'static, T: DeserializeOwned + Send + 'static> FromRequest<S, BoxBody>
+    for Path<T>
+{
+    type Rejection = PathRejection;
+    type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Rejection>> + Send>>;
+
+    fn from_request(req: Request, state: &S) -> Self::Future {
+        let state = state.clone();
+        Box::pin(async move {
+            let (mut parts, _body) = req.into_parts();
+            <Self as FromRequestParts<S>>::from_request_parts(&mut parts, &state).await
+        })
     }
 }

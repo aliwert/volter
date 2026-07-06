@@ -905,4 +905,339 @@ mod tests {
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
     }
+
+    // -- Multi-extractor handler tests ---------------------------------------
+
+    #[tokio::test]
+    async fn multi_state_path() {
+        #[derive(Clone)]
+        struct AppState {
+            prefix: String,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct IdParams {
+            id: u64,
+        }
+
+        async fn handler(
+            volter_core::State(state): volter_core::State<AppState>,
+            volter_extract::Path(params): volter_extract::Path<IdParams>,
+        ) -> String {
+            format!("{}-{}", state.prefix, params.id)
+        }
+
+        let mut app = Router::with_state(AppState {
+            prefix: "item".into(),
+        })
+        .route("/items/:id", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/items/42"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn multi_state_query() {
+        #[derive(Clone)]
+        struct AppState {
+            default_page: u32,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct PageQuery {
+            page: u32,
+        }
+
+        async fn handler(
+            volter_core::State(state): volter_core::State<AppState>,
+            volter_extract::Query(query): volter_extract::Query<PageQuery>,
+        ) -> String {
+            format!("page: {}", query.page + state.default_page)
+        }
+
+        let mut app = Router::with_state(AppState { default_page: 1 }).route("/list", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/list?page=10"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn multi_path_query() {
+        #[derive(serde::Deserialize)]
+        struct ItemParams {
+            id: u64,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct FilterQuery {
+            show: Option<String>,
+        }
+
+        async fn handler(
+            volter_extract::Path(params): volter_extract::Path<ItemParams>,
+            volter_extract::Query(query): volter_extract::Query<FilterQuery>,
+        ) -> String {
+            format!("{}-{:?}", params.id, query.show)
+        }
+
+        let mut app = Router::new().route("/items/:id", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/items/7?show=details"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn multi_path_extension() {
+        #[derive(serde::Deserialize)]
+        struct ItemParams {
+            id: u64,
+        }
+
+        #[derive(Debug, Clone, PartialEq)]
+        struct User {
+            name: String,
+        }
+
+        async fn handler(
+            volter_extract::Path(params): volter_extract::Path<ItemParams>,
+            volter_extract::Extension(user): volter_extract::Extension<User>,
+        ) -> String {
+            format!("{}-{}", params.id, user.name)
+        }
+
+        let mut app = Router::new().route("/items/:id", get(handler));
+        let request = http::Request::builder()
+            .method(http::Method::GET)
+            .uri("/items/7")
+            .extension(User {
+                name: "Alice".into(),
+            })
+            .body(empty_body())
+            .unwrap();
+        let response = app.call(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn multi_state_json() {
+        #[derive(Clone)]
+        struct AppState {
+            default_name: String,
+        }
+
+        #[derive(serde::Deserialize, serde::Serialize)]
+        struct UpdateUser {
+            name: String,
+            age: u8,
+        }
+
+        async fn handler(
+            volter_core::State(state): volter_core::State<AppState>,
+            volter_extract::Json(body): volter_extract::Json<UpdateUser>,
+        ) -> String {
+            format!("{}/{}", state.default_name, body.name)
+        }
+
+        let mut app = Router::with_state(AppState {
+            default_name: "default".into(),
+        })
+        .route("/users/:id", get(handler));
+        let body = br#"{"name":"Alice","age":30}"#;
+        let response = app
+            .call(json_request(http::Method::GET, "/users/42", body))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn multi_path_json() {
+        #[derive(serde::Deserialize)]
+        struct ItemParams {
+            id: u64,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct UpdateBody {
+            value: String,
+        }
+
+        async fn handler(
+            volter_extract::Path(params): volter_extract::Path<ItemParams>,
+            volter_extract::Json(body): volter_extract::Json<UpdateBody>,
+        ) -> String {
+            format!("{}-{}", params.id, body.value)
+        }
+
+        let mut app = Router::new().route("/items/:id", get(handler));
+        let body = br#"{"value":"updated"}"#;
+        let response = app
+            .call(json_request(http::Method::GET, "/items/7", body))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn multi_state_path_query() {
+        #[derive(Clone)]
+        struct AppState {
+            prefix: String,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct ItemParams {
+            id: u64,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct ViewQuery {
+            view: Option<String>,
+        }
+
+        async fn handler(
+            volter_core::State(state): volter_core::State<AppState>,
+            volter_extract::Path(params): volter_extract::Path<ItemParams>,
+            volter_extract::Query(query): volter_extract::Query<ViewQuery>,
+        ) -> String {
+            format!("{}-{}-{:?}", state.prefix, params.id, query.view)
+        }
+
+        let mut app = Router::with_state(AppState {
+            prefix: "item".into(),
+        })
+        .route("/items/:id", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/items/7?view=full"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn multi_state_path_json() {
+        #[derive(Clone)]
+        struct AppState {
+            prefix: String,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct ItemParams {
+            id: u64,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct UpdateBody {
+            value: String,
+        }
+
+        async fn handler(
+            volter_core::State(state): volter_core::State<AppState>,
+            volter_extract::Path(params): volter_extract::Path<ItemParams>,
+            volter_extract::Json(body): volter_extract::Json<UpdateBody>,
+        ) -> String {
+            format!("{}-{}-{}", state.prefix, params.id, body.value)
+        }
+
+        let mut app = Router::with_state(AppState {
+            prefix: "item".into(),
+        })
+        .route("/items/:id", get(handler));
+        let body = br#"{"value":"updated"}"#;
+        let response = app
+            .call(json_request(http::Method::GET, "/items/42", body))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn multi_query_json() {
+        #[derive(serde::Deserialize)]
+        struct LogQuery {
+            level: String,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct LogBody {
+            message: String,
+        }
+
+        async fn handler(
+            volter_extract::Query(query): volter_extract::Query<LogQuery>,
+            volter_extract::Json(body): volter_extract::Json<LogBody>,
+        ) -> String {
+            format!("{}-{}", query.level, body.message)
+        }
+
+        let mut app = Router::new().route("/log", get(handler));
+        let body = br#"{"message":"hello"}"#;
+        let response = app
+            .call(json_request(http::Method::GET, "/log?level=info", body))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn multi_rejection_short_circuit() {
+        #[derive(Clone)]
+        struct AppState;
+
+        #[derive(serde::Deserialize)]
+        struct ItemParams {
+            id: u64,
+        }
+
+        async fn handler(
+            volter_core::State(_state): volter_core::State<AppState>,
+            volter_extract::Path(_params): volter_extract::Path<ItemParams>,
+        ) -> &'static str {
+            "should not be reached"
+        }
+
+        // No :id param — Path extraction should fail before handler runs.
+        let mut app = Router::with_state(AppState).route("/items", get(handler));
+        let response = app
+            .call(request(http::Method::GET, "/items"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn multi_body_not_consumed_on_path_failure() {
+        #[derive(serde::Deserialize)]
+        struct ItemParams {
+            id: u64,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct UpdateBody {
+            value: String,
+        }
+
+        async fn handler(
+            volter_extract::Path(_params): volter_extract::Path<ItemParams>,
+            volter_extract::Json(_body): volter_extract::Json<UpdateBody>,
+        ) -> &'static str {
+            "should not be reached"
+        }
+
+        // Route matches /items/:id but `abc` is not a valid u64,
+        // so Path extraction fails before Json is ever evaluated.
+        let mut app = Router::new().route("/items/:id", get(handler));
+        let body = br#"{"value":"updated"}"#;
+        let response = app
+            .call(json_request(http::Method::GET, "/items/abc", body))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
 }

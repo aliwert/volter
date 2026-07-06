@@ -3,11 +3,13 @@
 //! Query parameters are parsed from the request URI's query string using
 //! `serde_urlencoded` and deserialized into the target type `T`.
 
+use std::future::Future;
 use std::future::Ready;
+use std::pin::Pin;
 
 use serde::de::DeserializeOwned;
 
-use volter_core::{FromRequestParts, IntoResponse, Response};
+use volter_core::{BoxBody, FromRequest, FromRequestParts, IntoResponse, Request, Response};
 
 // ---------------------------------------------------------------------------
 // QueryRejection
@@ -102,5 +104,27 @@ impl<S, T: DeserializeOwned + Send> FromRequestParts<S> for Query<T> {
             .map(Query)
             .map_err(QueryRejection::from);
         std::future::ready(result)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// FromRequest impl (body-consuming variant)
+// ---------------------------------------------------------------------------
+
+/// [`Query<T>`] also implements [`FromRequest`] so it can be the last
+/// argument in a multi-extractor handler tuple.  The body is split off
+/// and dropped.
+impl<S: Clone + Send + 'static, T: DeserializeOwned + Send + 'static> FromRequest<S, BoxBody>
+    for Query<T>
+{
+    type Rejection = QueryRejection;
+    type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Rejection>> + Send>>;
+
+    fn from_request(req: Request, state: &S) -> Self::Future {
+        let state = state.clone();
+        Box::pin(async move {
+            let (mut parts, _body) = req.into_parts();
+            <Self as FromRequestParts<S>>::from_request_parts(&mut parts, &state).await
+        })
     }
 }

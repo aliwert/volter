@@ -15,6 +15,7 @@ members = [
     "examples/query-params",
     "examples/json",
     "examples/extensions",
+    "examples/multi-extractors",
 ]
 
 [workspace.package]

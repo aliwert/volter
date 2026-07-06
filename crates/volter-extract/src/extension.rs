@@ -5,9 +5,11 @@
 //! handle).  Unlike [`State`], a missing `Extension` is a runtime error
 //! because middleware ordering cannot always be verified statically.
 
+use std::future::Future;
 use std::future::Ready;
+use std::pin::Pin;
 
-use volter_core::{FromRequestParts, IntoResponse, Response};
+use volter_core::{BoxBody, FromRequest, FromRequestParts, IntoResponse, Request, Response};
 
 // ---------------------------------------------------------------------------
 // ExtensionRejection
@@ -90,5 +92,25 @@ impl<S, T: Send + Sync + 'static> FromRequestParts<S> for Extension<T> {
             ))
             .map(Extension);
         std::future::ready(result)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// FromRequest impl (body-consuming variant)
+// ---------------------------------------------------------------------------
+
+/// [`Extension<T>`] also implements [`FromRequest`] so it can be the last
+/// argument in a multi-extractor handler tuple.  The body is split off
+/// and dropped.
+impl<S: Clone + Send + 'static, T: Send + Sync + 'static> FromRequest<S, BoxBody> for Extension<T> {
+    type Rejection = ExtensionRejection;
+    type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Rejection>> + Send>>;
+
+    fn from_request(req: Request, state: &S) -> Self::Future {
+        let state = state.clone();
+        Box::pin(async move {
+            let (mut parts, _body) = req.into_parts();
+            <Self as FromRequestParts<S>>::from_request_parts(&mut parts, &state).await
+        })
     }
 }

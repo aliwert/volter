@@ -6,8 +6,9 @@
 //! [`FromRequest`] may consume the request body.
 
 use std::future::Future;
+use std::pin::Pin;
 
-use crate::body::BoxBody;
+use crate::body::{BoxBody, Request};
 use crate::into_response::IntoResponse;
 
 /// Extract a typed value from the request's [`http::request::Parts`]
@@ -72,5 +73,24 @@ impl<S: Clone + Send + 'static> FromRequestParts<S> for State<S> {
 
     fn from_request_parts(_parts: &mut http::request::Parts, state: &S) -> Self::Future {
         std::future::ready(Ok(State(state.clone())))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// FromRequest for State (body-consuming variant)
+// ---------------------------------------------------------------------------
+
+/// [`State`] also implements [`FromRequest`] so it can be the last argument
+/// in a multi-extractor handler tuple.  The body is split off and dropped.
+impl<S: Clone + Send + 'static> FromRequest<S, BoxBody> for State<S> {
+    type Rejection = std::convert::Infallible;
+    type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Rejection>> + Send>>;
+
+    fn from_request(req: Request, state: &S) -> Self::Future {
+        let state = state.clone();
+        Box::pin(async move {
+            let (_parts, _body) = req.into_parts();
+            Ok(State(state))
+        })
     }
 }
