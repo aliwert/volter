@@ -13,6 +13,11 @@ volter-router = { workspace = true }
 volter-extract = { workspace = true }
 volter-middleware = { workspace = true }
 tokio = { workspace = true }
+tower = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+http-body = { workspace = true }
+bytes = { workspace = true }
 
 [dependencies.volter-macros]
 workspace = true

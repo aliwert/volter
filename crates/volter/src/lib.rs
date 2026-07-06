@@ -34,6 +34,11 @@ pub use volter_extract::{Extension, Json, Path, Query};
 /// Typed application state extractor (defined in `volter-core`).
 pub use volter_core::State;
 
+/// High-level server — [`serve`](server::serve).
+mod server;
+
+pub use server::{serve, serve_with};
+
 /// Built-in middleware layers.
 pub use volter_middleware::{Cors, Timeout, Trace};
 
