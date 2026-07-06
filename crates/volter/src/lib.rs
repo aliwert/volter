@@ -53,13 +53,16 @@ pub use server::{serve, serve_with};
 /// [`CorsLayer`] adds Cross-Origin Resource Sharing headers with permissive
 /// or fine-grained configuration.
 ///
+/// [`CompressionLayer`] compresses response bodies using `Accept-Encoding`
+/// negotiation (gzip, br, zstd, deflate).
+///
 /// [`RequestIdLayer`] assigns every request a unique [`RequestId`] and
 /// sets the `X-Request-Id` response header.
-/// or fine-grained configuration.
 ///
 /// All are used via [`Router::layer()`]:
 pub use volter_middleware::{
-    CatchPanicLayer, CorsLayer, RequestId, RequestIdLayer, TimeoutLayer, TraceLayer,
+    CatchPanicLayer, CompressionLayer, CorsLayer, RequestId, RequestIdLayer, TimeoutLayer,
+    TraceLayer,
 };
 
 /// Derive macros for extractors.

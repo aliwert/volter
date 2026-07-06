@@ -20,3 +20,5 @@ ulid = { workspace = true }
 volter-router = { workspace = true }
 volter-extract = { workspace = true }
 http = { workspace = true }
+http-body-util = { workspace = true }
+flate2 = "1"

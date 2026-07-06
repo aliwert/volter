@@ -17,6 +17,8 @@
 //!   `X-Request-Id` response header.
 //! - [`CorsLayer`] — permissive or configurable CORS with full preflight
 //!   support.
+//! - [`CompressionLayer`] — compresses response bodies using
+//!   `Accept-Encoding` negotiation (gzip, br, zstd, deflate).
 //!
 //! Planned:
 //! - `RequestBodyLimitLayer` — reject oversized bodies before they're fully
@@ -33,12 +35,14 @@
 )]
 
 mod catch_panic;
+mod compression;
 mod cors;
 mod request_id;
 mod timeout;
 mod trace;
 
 pub use catch_panic::CatchPanicLayer;
+pub use compression::CompressionLayer;
 pub use cors::CorsLayer;
 pub use request_id::{RequestId, RequestIdLayer};
 pub use timeout::TimeoutLayer;
