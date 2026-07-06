@@ -1191,6 +1191,7 @@ mod tests {
         struct AppState;
 
         #[derive(serde::Deserialize)]
+        #[allow(dead_code)]
         struct ItemParams {
             id: u64,
         }
@@ -1214,11 +1215,13 @@ mod tests {
     #[tokio::test]
     async fn multi_body_not_consumed_on_path_failure() {
         #[derive(serde::Deserialize)]
+        #[allow(dead_code)]
         struct ItemParams {
             id: u64,
         }
 
         #[derive(serde::Deserialize)]
+        #[allow(dead_code)]
         struct UpdateBody {
             value: String,
         }
