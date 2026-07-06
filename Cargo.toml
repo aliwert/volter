@@ -19,6 +19,7 @@ members = [
     "examples/middleware",
     "examples/tracing",
     "examples/timeout",
+    "examples/catch-panic",
 ]
 
 [workspace.package]

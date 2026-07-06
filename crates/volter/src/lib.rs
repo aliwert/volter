@@ -47,8 +47,11 @@ pub use server::{serve, serve_with};
 /// [`TimeoutLayer`] enforces a per-request timeout and returns `408 Request
 /// Timeout` on expiry.
 ///
-/// Both are used via [`Router::layer()`]:
-pub use volter_middleware::{Cors, TimeoutLayer, TraceLayer};
+/// [`CatchPanicLayer`] catches panics from handlers and returns `500 Internal
+/// Server Error`.
+///
+/// All are used via [`Router::layer()`]:
+pub use volter_middleware::{CatchPanicLayer, Cors, TimeoutLayer, TraceLayer};
 
 /// Derive macros for extractors.
 #[cfg(feature = "macros")]
