@@ -26,6 +26,7 @@ members = [
     "examples/body-limit",
     "examples/concurrency-limit",
     "examples/rate-limit",
+    "examples/nesting",
 ]
 
 [workspace.package]
