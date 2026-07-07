@@ -25,6 +25,7 @@ members = [
     "examples/compression",
     "examples/body-limit",
     "examples/concurrency-limit",
+    "examples/rate-limit",
 ]
 
 [workspace.package]

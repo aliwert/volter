@@ -62,13 +62,16 @@ pub use server::{serve, serve_with};
 /// [`ConcurrencyLimitLayer`] limits the number of concurrently executing
 /// requests.
 ///
+/// [`RateLimitLayer`] limits the request rate using a fixed-window counter
+/// and returns `429 Too Many Requests` when the limit is exceeded.
+///
 /// [`RequestIdLayer`] assigns every request a unique [`RequestId`] and
 /// sets the `X-Request-Id` response header.
 ///
 /// All are used via [`Router::layer()`]:
 pub use volter_middleware::{
-    CatchPanicLayer, CompressionLayer, ConcurrencyLimitLayer, CorsLayer, RequestBodyLimitLayer,
-    RequestId, RequestIdLayer, TimeoutLayer, TraceLayer,
+    CatchPanicLayer, CompressionLayer, ConcurrencyLimitLayer, CorsLayer, RateLimitLayer,
+    RequestBodyLimitLayer, RequestId, RequestIdLayer, TimeoutLayer, TraceLayer,
 };
 
 /// Derive macros for extractors.

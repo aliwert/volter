@@ -23,12 +23,8 @@
 //!   `413 Payload Too Large` when exceeded.
 //! - [`ConcurrencyLimitLayer`] — limits the number of concurrently executing
 //!   requests.
-//!
-//! Planned:
-//! - rate limiting, connection limits (see `PROJECT.md` milestones).
-//!   buffered.
-//!   TODO(v0.3): rate limiting, connection limits (see `PROJECT.md`
-//!   milestones).
+//! - [`RateLimitLayer`] — fixed-window rate limiter that returns `429 Too
+//!   Many Requests` when the limit is exceeded.
 
 #![deny(missing_docs)]
 #![deny(
@@ -43,6 +39,7 @@ mod catch_panic;
 mod compression;
 mod concurrency_limit;
 mod cors;
+mod rate_limit;
 mod request_id;
 mod timeout;
 mod trace;
@@ -52,6 +49,7 @@ pub use catch_panic::CatchPanicLayer;
 pub use compression::CompressionLayer;
 pub use concurrency_limit::ConcurrencyLimitLayer;
 pub use cors::CorsLayer;
+pub use rate_limit::RateLimitLayer;
 pub use request_id::{RequestId, RequestIdLayer};
 pub use timeout::TimeoutLayer;
 pub use trace::TraceLayer;

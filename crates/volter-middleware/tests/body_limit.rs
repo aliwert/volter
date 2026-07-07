@@ -116,7 +116,7 @@ async fn different_limits_work() {
         .route("/", volter_router::get(handler))
         .layer(RequestBodyLimitLayer::new(100));
 
-    let response = app.call(request_with_len(&vec![b'a'; 50])).await.unwrap();
+    let response = app.call(request_with_len(&[b'a'; 50])).await.unwrap();
     assert_eq!(response.status(), 200);
 
     // 100 byte limit — body above
@@ -124,7 +124,7 @@ async fn different_limits_work() {
         .route("/", volter_router::get(handler))
         .layer(RequestBodyLimitLayer::new(100));
 
-    let response = app.call(request_with_len(&vec![b'a'; 101])).await.unwrap();
+    let response = app.call(request_with_len(&[b'a'; 101])).await.unwrap();
     assert_eq!(response.status(), 413);
 }
 
