@@ -27,6 +27,7 @@ members = [
     "examples/concurrency-limit",
     "examples/rate-limit",
     "examples/nesting",
+    "examples/merge",
 ]
 
 [workspace.package]

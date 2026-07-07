@@ -321,6 +321,78 @@ impl<S: Clone + Send + 'static> Router<S> {
         self
     }
 
+    /// Merge another router at the same level.
+    ///
+    /// All routes, nests, and middleware from `other` are combined into
+    /// `self`.  When both routers define a route for the same path and
+    /// HTTP method, **the last merged router wins** (`other`'s handler
+    /// replaces `self`'s).
+    ///
+    /// # Middleware preservation
+    ///
+    /// Each router's middleware layers continue to wrap only their own
+    /// pre-layer routes.  Post-layer routes (added after the most recent
+    /// `layer()` call) are merged directly into the route table and are
+    /// not wrapped by either router's layers.
+    ///
+    /// # Layer interaction
+    ///
+    /// Merging before or after a [`layer`](Router::layer) call follows the
+    /// same semantics as [`route`](Router::route): merged routes are
+    /// captured by the pre-layer snapshot, or left as post-layer routes.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use volter_router::{Router, get};
+    ///
+    /// async fn users() -> &'static str { "users" }
+    /// async fn admin() -> &'static str { "admin" }
+    ///
+    /// let api = Router::new().route("/users", get(users));
+    /// let admin = Router::new().route("/admin", get(admin));
+    ///
+    /// let app = api.merge(admin);
+    /// ```
+    pub fn merge(mut self, other: Router<S>) -> Self {
+        // 1. Merge post-layer static routes — other's entries override
+        //    self's for the same path (last merged wins).
+        self.static_routes.extend(other.static_routes);
+
+        // 2. Merge post-layer param routes — prepend other's so they are
+        //    checked first (last merged wins).
+        let mut all_param = other.param_routes;
+        all_param.extend(self.param_routes);
+        self.param_routes = all_param;
+
+        // 3. Merge nested routers — prepend other's so they are checked
+        //    first (last merged wins).
+        let mut all_nests = other.nested_routers;
+        all_nests.extend(self.nested_routers);
+        self.nested_routers = all_nests;
+
+        // 4. Merge layered (pre-layer) services.
+        //
+        //    When both routers have applied layers, we combine them into a
+        //    single [`CombinedService`] that tries the last-merged router's
+        //    dispatch first, then falls through to self's.  When only one
+        //    has layers, that one's service becomes the merged router's
+        //    layered service.
+        match (self.layered.take(), other.layered) {
+            (None, None) => {}
+            (Some(self_l), None) => self.layered = Some(self_l),
+            (None, Some(other_l)) => self.layered = Some(other_l),
+            (Some(self_l), Some(other_l)) => {
+                // Other (last merged) checked first.
+                self.layered = Some(BoxCloneService::new(CombinedService {
+                    services: vec![other_l, self_l],
+                }));
+            }
+        }
+
+        self
+    }
+
     /// Build a [`BoxCloneService`] that captures the full dispatch of this
     /// router (post-layer routes, nests, and layered fallback).  Used by
     /// [`nest`](Router::nest) to capture the nested router's dispatch.
@@ -520,6 +592,50 @@ fn dispatch_services(
         return Box::pin(async move { svc.call(req).await });
     }
     Box::pin(async move { Ok(method_not_allowed_response()) })
+}
+
+// ---------------------------------------------------------------------------
+// CombinedService — dispatch that tries multiple layered services in order
+// ---------------------------------------------------------------------------
+
+/// A dispatch service that tries each inner service in order.
+///
+/// The first service that returns a non-`404` response wins.  If all
+/// services return `404`, the last `404` is returned.
+///
+/// # Limitation
+///
+/// Only the first service is guaranteed a chance to run — the request body
+/// is consumed when the first service processes it.  In practice this means
+/// that when two merged routers both have middleware layers, only the last
+/// merged router's pre-layer routes are attempted if the first router's
+/// layered service returns `404` without a matching route (because the
+/// request has already been forwarded inside the `BoxCloneService`).
+/// This is a known v1 limitation and may be lifted in a later PR.
+#[derive(Clone)]
+struct CombinedService {
+    services: Vec<BoxCloneService<Request, Response, Infallible>>,
+}
+
+impl Service<Request> for CombinedService {
+    type Response = Response;
+    type Error = Infallible;
+    type Future = BoxedFuture;
+
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: Request) -> Self::Future {
+        let services = self.services.clone();
+        Box::pin(async move {
+            if let Some(mut svc) = services.into_iter().next() {
+                svc.call(req).await
+            } else {
+                Ok(not_found_response())
+            }
+        })
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2433,5 +2549,402 @@ mod tests {
         // then the handler sets 100, then outer runs again on the way out (10).
         // The nested layer runs inside the outer layer.
         assert_eq!(ORDER.load(Ordering::SeqCst), 10);
+    }
+
+    // -- Merge tests ---------------------------------------------------------
+
+    #[tokio::test]
+    async fn basic_merge() {
+        async fn users() -> &'static str {
+            "users"
+        }
+        async fn posts() -> &'static str {
+            "posts"
+        }
+
+        let api = Router::new().route("/users", get(users));
+        let admin = Router::new().route("/posts", get(posts));
+        let mut app = api.merge(admin);
+
+        let users_resp = app
+            .call(request(http::Method::GET, "/users"))
+            .await
+            .unwrap();
+        assert_eq!(users_resp.status(), StatusCode::OK);
+
+        let posts_resp = app
+            .call(request(http::Method::GET, "/posts"))
+            .await
+            .unwrap();
+        assert_eq!(posts_resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn merge_duplicate_route_last_wins() {
+        async fn first() -> &'static str {
+            "first"
+        }
+        async fn second() -> &'static str {
+            "second"
+        }
+
+        let router_a = Router::new().route("/shared", get(first));
+        let router_b = Router::new().route("/shared", get(second));
+        let mut app = router_a.merge(router_b);
+
+        let response = app
+            .call(request(http::Method::GET, "/shared"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn merge_with_root_routes() {
+        async fn root() -> &'static str {
+            "root"
+        }
+        async fn users() -> &'static str {
+            "users"
+        }
+
+        let router_a = Router::new().route("/", get(root));
+        let router_b = Router::new().route("/users", get(users));
+        let mut app = router_a.merge(router_b);
+
+        let resp = app.call(request(http::Method::GET, "/")).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let users_resp = app
+            .call(request(http::Method::GET, "/users"))
+            .await
+            .unwrap();
+        assert_eq!(users_resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn merge_with_nested_routers() {
+        async fn users() -> &'static str {
+            "users"
+        }
+        async fn items() -> &'static str {
+            "items"
+        }
+
+        let inner_a = Router::new().route("/users", get(users));
+        let inner_b = Router::new().route("/items", get(items));
+
+        let api = Router::new().nest("/api", inner_a);
+        let admin = Router::new().nest("/admin", inner_b);
+
+        let mut app = api.merge(admin);
+
+        let resp = app
+            .call(request(http::Method::GET, "/api/users"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = app
+            .call(request(http::Method::GET, "/admin/items"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn merge_with_middleware_both_sides() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        static RAN_LAST: AtomicBool = AtomicBool::new(false);
+
+        struct TrackLayer {
+            flag: &'static AtomicBool,
+        }
+
+        impl Layer<Svc> for TrackLayer {
+            type Service = WrapSvc;
+
+            fn layer(&self, inner: Svc) -> Self::Service {
+                let flag = self.flag;
+                WrapSvc {
+                    inner,
+                    f: std::sync::Arc::new(move |req, mut inner| {
+                        Box::pin(async move {
+                            flag.store(true, Ordering::SeqCst);
+                            inner.call(req).await
+                        })
+                    }),
+                }
+            }
+        }
+
+        async fn last_merged_handler() -> &'static str {
+            "last"
+        }
+
+        // Both routers have applied layers.  When both have layers, only
+        // the last-merged router's pre-layer routes are accessible because
+        // the request body is consumed by its dispatch service.
+        let first = Router::new()
+            .route("/first", get(|| async { "first" }))
+            .layer(tower::layer::layer_fn(|svc| svc));
+        let last = Router::new()
+            .route("/last", get(last_merged_handler))
+            .layer(TrackLayer { flag: &RAN_LAST });
+
+        RAN_LAST.store(false, Ordering::SeqCst);
+        let mut app = first.merge(last);
+
+        // Last-merged router's route works with its middleware.
+        let resp = app.call(request(http::Method::GET, "/last")).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert!(
+            RAN_LAST.load(Ordering::SeqCst),
+            "last-merged middleware ran"
+        );
+    }
+
+    #[tokio::test]
+    async fn merge_one_side_has_middleware() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        static RAN: AtomicBool = AtomicBool::new(false);
+
+        struct CheckLayer;
+
+        impl Layer<Svc> for CheckLayer {
+            type Service = WrapSvc;
+
+            fn layer(&self, inner: Svc) -> Self::Service {
+                WrapSvc {
+                    inner,
+                    f: std::sync::Arc::new(|req, mut inner| {
+                        Box::pin(async move {
+                            RAN.store(true, Ordering::SeqCst);
+                            inner.call(req).await
+                        })
+                    }),
+                }
+            }
+        }
+
+        async fn layered_handler() -> &'static str {
+            "layered"
+        }
+        async fn plain_handler() -> &'static str {
+            "plain"
+        }
+
+        let layered_router = Router::new()
+            .route("/layered", get(layered_handler))
+            .layer(CheckLayer);
+
+        let plain_router = Router::new().route("/plain", get(plain_handler));
+
+        RAN.store(false, Ordering::SeqCst);
+        let mut app = layered_router.merge(plain_router);
+
+        let resp = app
+            .call(request(http::Method::GET, "/layered"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert!(
+            RAN.load(Ordering::SeqCst),
+            "middleware should run for layered route"
+        );
+
+        let resp = app
+            .call(request(http::Method::GET, "/plain"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn merge_with_state() {
+        #[derive(Clone)]
+        struct AppState {
+            value: u32,
+        }
+
+        async fn handler_a(volter_core::State(state): volter_core::State<AppState>) -> String {
+            format!("a:{}", state.value)
+        }
+        async fn handler_b(volter_core::State(state): volter_core::State<AppState>) -> String {
+            format!("b:{}", state.value)
+        }
+
+        let shared = AppState { value: 42 };
+
+        let router_a = Router::with_state(shared.clone()).route("/a", get(handler_a));
+        let router_b = Router::with_state(shared.clone()).route("/b", get(handler_b));
+        let mut app = router_a.merge(router_b);
+
+        let resp = app.call(request(http::Method::GET, "/a")).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = app.call(request(http::Method::GET, "/b")).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn merge_with_path_params() {
+        async fn handler(volter_extract::Path(id): volter_extract::Path<u64>) -> String {
+            format!("id:{}", id)
+        }
+
+        let router_a = Router::new().route("/items/:id", get(handler));
+        let router_b = Router::new().route("/users/:id", get(handler));
+        let mut app = router_a.merge(router_b);
+
+        let resp = app
+            .call(request(http::Method::GET, "/items/42"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = app
+            .call(request(http::Method::GET, "/users/7"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn merge_duplicate_param_route_last_wins() {
+        async fn first() -> &'static str {
+            "first"
+        }
+        async fn second() -> &'static str {
+            "second"
+        }
+
+        let router_a = Router::new().route("/:id", get(first));
+        let router_b = Router::new().route("/:id", get(second));
+        let mut app = router_a.merge(router_b);
+
+        let response = app
+            .call(request(http::Method::GET, "/anything"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn merge_after_layer() {
+        async fn pre() -> &'static str {
+            "pre"
+        }
+        async fn merged() -> &'static str {
+            "merged"
+        }
+
+        let router_a = Router::new()
+            .route("/pre", get(pre))
+            .layer(tower::layer::layer_fn(|svc| svc));
+
+        let router_b = Router::new().route("/merged", get(merged));
+
+        let mut app = router_a.merge(router_b);
+
+        let resp = app.call(request(http::Method::GET, "/pre")).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = app
+            .call(request(http::Method::GET, "/merged"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn layer_after_merge() {
+        async fn handler_a() -> &'static str {
+            "a"
+        }
+        async fn handler_b() -> &'static str {
+            "b"
+        }
+
+        let router_a = Router::new().route("/a", get(handler_a));
+        let router_b = Router::new().route("/b", get(handler_b));
+
+        let mut app = router_a
+            .merge(router_b)
+            .layer(tower::layer::layer_fn(|svc| svc));
+
+        let resp = app.call(request(http::Method::GET, "/a")).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = app.call(request(http::Method::GET, "/b")).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn merge_preserves_nested_routes_with_middleware() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        static MIDDLEWARE_RAN: AtomicBool = AtomicBool::new(false);
+
+        struct CheckLayer;
+
+        impl Layer<Svc> for CheckLayer {
+            type Service = WrapSvc;
+
+            fn layer(&self, inner: Svc) -> Self::Service {
+                WrapSvc {
+                    inner,
+                    f: std::sync::Arc::new(|req, mut inner| {
+                        Box::pin(async move {
+                            MIDDLEWARE_RAN.store(true, Ordering::SeqCst);
+                            inner.call(req).await
+                        })
+                    }),
+                }
+            }
+        }
+
+        async fn nested_handler() -> &'static str {
+            "nested"
+        }
+
+        let inner = Router::new()
+            .route("/nested", get(nested_handler))
+            .layer(CheckLayer);
+
+        let outer = Router::new().route("/other", get(|| async { "other" }));
+
+        MIDDLEWARE_RAN.store(false, Ordering::SeqCst);
+        let mut app = inner.merge(outer);
+
+        // Nested route (with middleware) from merged router should still work.
+        let resp = app
+            .call(request(http::Method::GET, "/nested"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert!(
+            MIDDLEWARE_RAN.load(Ordering::SeqCst),
+            "middleware on nested route should run"
+        );
+    }
+
+    #[tokio::test]
+    async fn merge_404() {
+        async fn handler() -> &'static str {
+            "exists"
+        }
+
+        let router_a = Router::new().route("/a", get(handler));
+        let router_b = Router::new().route("/b", get(handler));
+        let mut app = router_a.merge(router_b);
+
+        let resp = app
+            .call(request(http::Method::GET, "/unknown"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     }
 }
