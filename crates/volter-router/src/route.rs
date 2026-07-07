@@ -39,3 +39,31 @@ where
     router.get(handler);
     router
 }
+
+/// Create a [`MethodRouter`] that matches **POST** requests.
+///
+/// The returned router delegates to `handler` when the request method is
+/// `POST`.  Other methods on the same path receive a `405 Method Not Allowed`
+/// response.
+///
+/// # Example
+///
+/// ```rust
+/// use volter_router::{Router, post};
+///
+/// async fn create() -> &'static str {
+///     "Created"
+/// }
+///
+/// let app: Router = Router::new().route("/", post(create));
+/// ```
+pub fn post<H, T, S>(handler: H) -> MethodRouter<S>
+where
+    H: Handler<T, S> + Sync,
+    T: 'static,
+    S: Clone + Send + 'static,
+{
+    let mut router = MethodRouter::new();
+    router.post(handler);
+    router
+}

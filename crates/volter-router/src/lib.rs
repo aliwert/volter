@@ -6,6 +6,7 @@
 //!   implements [`tower::Service`].
 //! - [`MethodRouter`] — per-path dispatcher that routes by HTTP method.
 //! - [`get`] — construct a [`MethodRouter`] for a GET handler.
+//! - [`post`] — construct a [`MethodRouter`] for a POST handler.
 //!
 //! See the workspace root `ARCHITECTURE.md` → "Router architecture" for
 //! the full design.
@@ -25,5 +26,5 @@ mod route;
 mod router;
 
 pub use method_router::MethodRouter;
-pub use route::get;
+pub use route::{get, post};
 pub use router::Router;

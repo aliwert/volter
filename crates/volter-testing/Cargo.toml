@@ -9,7 +9,18 @@ repository.workspace = true
 
 [dependencies]
 volter-core = { workspace = true }
+volter-router = { workspace = true }
 http = { workspace = true }
+http-body = { workspace = true }
 http-body-util = { workspace = true }
 tower = { workspace = true }
 tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+bytes = { workspace = true }
+
+[dev-dependencies]
+volter-middleware = { workspace = true }
+volter-extract = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

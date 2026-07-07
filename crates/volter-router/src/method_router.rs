@@ -123,6 +123,16 @@ impl<S: Clone + Send + 'static> MethodRouter<S> {
         self.handlers.insert(Method::GET, HandlerSlot::new(handler));
     }
 
+    /// Register a handler for POST requests.
+    pub fn post<H, T>(&mut self, handler: H)
+    where
+        H: Handler<T, S> + Sync,
+        T: 'static,
+    {
+        self.handlers
+            .insert(Method::POST, HandlerSlot::new(handler));
+    }
+
     /// Finalize all stored handlers into boxed cloneable services.
     ///
     /// Consumes the `MethodRouter` and returns a map from HTTP method to
