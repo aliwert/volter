@@ -21,6 +21,8 @@
 //!   `Accept-Encoding` negotiation (gzip, br, zstd, deflate).
 //! - [`RequestBodyLimitLayer`] — limits request body size, returns
 //!   `413 Payload Too Large` when exceeded.
+//! - [`ConcurrencyLimitLayer`] — limits the number of concurrently executing
+//!   requests.
 //!
 //! Planned:
 //! - rate limiting, connection limits (see `PROJECT.md` milestones).
@@ -39,6 +41,7 @@
 mod body_limit;
 mod catch_panic;
 mod compression;
+mod concurrency_limit;
 mod cors;
 mod request_id;
 mod timeout;
@@ -47,6 +50,7 @@ mod trace;
 pub use body_limit::RequestBodyLimitLayer;
 pub use catch_panic::CatchPanicLayer;
 pub use compression::CompressionLayer;
+pub use concurrency_limit::ConcurrencyLimitLayer;
 pub use cors::CorsLayer;
 pub use request_id::{RequestId, RequestIdLayer};
 pub use timeout::TimeoutLayer;

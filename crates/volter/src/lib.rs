@@ -59,13 +59,16 @@ pub use server::{serve, serve_with};
 /// [`RequestBodyLimitLayer`] limits request body size and returns
 /// `413 Payload Too Large` when exceeded.
 ///
+/// [`ConcurrencyLimitLayer`] limits the number of concurrently executing
+/// requests.
+///
 /// [`RequestIdLayer`] assigns every request a unique [`RequestId`] and
 /// sets the `X-Request-Id` response header.
 ///
 /// All are used via [`Router::layer()`]:
 pub use volter_middleware::{
-    CatchPanicLayer, CompressionLayer, CorsLayer, RequestBodyLimitLayer, RequestId, RequestIdLayer,
-    TimeoutLayer, TraceLayer,
+    CatchPanicLayer, CompressionLayer, ConcurrencyLimitLayer, CorsLayer, RequestBodyLimitLayer,
+    RequestId, RequestIdLayer, TimeoutLayer, TraceLayer,
 };
 
 /// Derive macros for extractors.
