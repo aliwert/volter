@@ -12,3 +12,5 @@ volter-core = { workspace = true }
 http = { workspace = true }
 tokio = { workspace = true }
 tokio-tungstenite = "0.24"
+hyper = { workspace = true }
+futures-util = "0.3"

@@ -28,6 +28,7 @@ members = [
     "examples/rate-limit",
     "examples/nesting",
     "examples/merge",
+    "examples/websocket",
 ]
 
 [workspace.package]
