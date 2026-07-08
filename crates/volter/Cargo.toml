@@ -29,6 +29,12 @@ optional = true
 
 [dev-dependencies]
 serde = { workspace = true }
+criterion = { workspace = true }
+volter-testing = { workspace = true }
+
+[[bench]]
+name = "router"
+harness = false
 
 [features]
 default = ["macros"]

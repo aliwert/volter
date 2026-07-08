@@ -76,9 +76,9 @@ keeps macro expansion simple and robust.
 
 ### How does Volter compare to Axum?
 
-Volter is built on the same hyper/tokio/tower stack as Axum, so baseline
-performance is comparable. The main differences are in API design and
-convenience features, not raw throughput.
+Volter is built on the same hyper/tokio/tower stack as Axum, so raw request
+dispatch throughput is comparable. See [Performance](./performance.md) for the
+current Criterion benchmark results.
 
 ### Does Volter support streaming?
 

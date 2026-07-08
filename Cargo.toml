@@ -62,6 +62,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 bytes = "1"
 ulid = "1"
 
+# Benchmarking — see TOOLS.md → "Benchmarking"
+criterion = { version = "0.5", features = ["html_reports"] }
+
 # Internal workspace crates, referenced by version + path so `cargo publish`
 # still works once each crate is ready to ship independently.
 volter-core = { version = "0.1.0", path = "crates/volter-core" }

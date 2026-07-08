@@ -42,6 +42,7 @@
 # Reference
 
 - [Examples](./examples/index.md)
+- [Performance](./performance.md)
 - [FAQ](./faq.md)
 - [Architecture](./architecture/architecture.md)
 - [Contributing](./contributing.md)
