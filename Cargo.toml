@@ -30,6 +30,7 @@ members = [
     "examples/merge",
     "examples/websocket",
     "examples/derive-extractors",
+    "examples/route-macros",
 ]
 
 [workspace.package]

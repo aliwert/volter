@@ -18,11 +18,12 @@ use http::Method;
 use tower::util::BoxCloneService;
 use tower::{Layer, Service};
 
-use volter_core::{Request, Response, UrlParams};
+use volter_core::{Handler, Request, Response, UrlParams};
 
 use crate::error::{method_not_allowed_response, not_found_response};
 use crate::method_router::{BoxedFuture, MethodRouter};
 use crate::pattern::RoutePattern;
+use crate::route_attr::RouteAttr;
 
 // ---------------------------------------------------------------------------
 // ParamRoute
@@ -230,6 +231,31 @@ impl<S: Clone + Send + 'static> Router<S> {
             self.static_routes.insert(path.to_owned(), services);
         }
         self
+    }
+
+    /// Register a route from a [`RouteAttr`] (returned by route attribute
+    /// macros such as `#[get("/")]`).
+    ///
+    /// The [`RouteAttr`] provides the path and HTTP method; the handler is
+    /// passed separately so its type can be fully inferred.
+    ///
+    /// ```rust
+    /// use volter_router::{Router, RouteAttr};
+    ///
+    /// async fn index() -> &'static str { "Hello!" }
+    ///
+    /// const INDEX_ROUTE: RouteAttr = RouteAttr::get("/");
+    ///
+    /// let app: Router = Router::new().route_attr(INDEX_ROUTE, index);
+    /// ```
+    pub fn route_attr<H, T>(self, attr: RouteAttr, handler: H) -> Self
+    where
+        H: Handler<T, S> + Sync,
+        T: 'static,
+    {
+        let path = attr.path().to_owned();
+        let mr = attr.into_method_router(handler);
+        self.route(&path, mr)
     }
 
     /// Wrap the router with a [`tower::Layer`].

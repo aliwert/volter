@@ -26,7 +26,7 @@ pub use volter_core::{
 };
 
 /// Router for request routing.
-pub use volter_router::{get, post, MethodRouter, Router};
+pub use volter_router::{get, post, MethodRouter, RouteAttr, Router};
 
 /// Standard extractors.
 pub use volter_extract::{Extension, Json, JsonRejection, Path, Query, QueryRejection};

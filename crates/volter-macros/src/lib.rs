@@ -20,6 +20,13 @@
 //! Both derives require the struct to implement
 //! [`serde::de::DeserializeOwned`] (typically via `#[derive(serde::Deserialize)]`).
 //!
+//! # Attribute macros
+//!
+//! - `#[get("/path")]` — register a handler for GET requests.  Expands the
+//!   function and generates a `{FN_NAME_UPPER}_ROUTE` const that can be
+//!   passed to [`Router::route_attr`].
+//! - `#[post("/path")]` — same for POST requests.
+//!
 //! volter's core routing API must always work without any macro from this
 //! crate (`Router::new().route("/x", get(handler))`) — macros are additive
 //! sugar, never a requirement.
@@ -32,9 +39,51 @@
     clippy::indexing_slicing
 )]
 
-use proc_macro::TokenStream;
+use proc_macro::{Delimiter, TokenStream, TokenTree};
 
-use syn::{parse_macro_input, Data, DeriveInput, GenericParam, TypeParam};
+use syn::{parse_macro_input, Data, DeriveInput, GenericParam, ItemFn, TypeParam};
+
+/// Extract the path string from attribute arguments.
+///
+/// Some Rust versions pass `args` as a bare string literal (`"/path"`),
+/// others wrap it in a parenthesised group (`("/path")`).  Handle both.
+fn parse_attr_path(args: TokenStream) -> syn::Result<String> {
+    let vec: Vec<TokenTree> = args.into_iter().collect();
+
+    // If the first token is a parenthesised group, unwrap it.
+    let inner = if vec.len() == 1 {
+        match vec.into_iter().next() {
+            Some(TokenTree::Group(g)) if g.delimiter() == Delimiter::Parenthesis => g.stream(),
+            Some(other) => other.into(),
+            None => {
+                return Err(syn::Error::new(
+                    proc_macro2::Span::call_site(),
+                    "expected a path string, e.g. \"/\"",
+                ));
+            }
+        }
+    } else if vec.is_empty() {
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "expected a path string, e.g. \"/\"",
+        ));
+    } else {
+        // Multiple tokens without a wrapping group — not valid.
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "unexpected tokens in attribute arguments",
+        ));
+    };
+
+    syn::parse::<syn::LitStr>(inner)
+        .map(|lit| lit.value())
+        .map_err(|_| {
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "expected a string literal path, e.g. \"/\"",
+            )
+        })
+}
 
 /// Create the full generics including a phantom `__S` state parameter and
 /// trait bounds.
@@ -207,4 +256,71 @@ pub fn derive_from_request(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(expanded)
+}
+
+// ---------------------------------------------------------------------------
+// Route attribute macros
+// ---------------------------------------------------------------------------
+
+/// Shared implementation for `#[get]` and `#[post]` attribute macros.
+fn route_attr_impl(args: TokenStream, input: TokenStream, method: &str) -> TokenStream {
+    let path_str = match parse_attr_path(args) {
+        Ok(s) => s,
+        Err(err) => return err.to_compile_error().into(),
+    };
+    let path_lit = syn::LitStr::new(&path_str, proc_macro2::Span::call_site());
+    let func = parse_macro_input!(input as ItemFn);
+
+    if func.sig.asyncness.is_none() {
+        return syn::Error::new_spanned(
+            &func.sig,
+            format!("`#[{method}(\"...\")]` requires an async function"),
+        )
+        .to_compile_error()
+        .into();
+    }
+
+    let fn_name = &func.sig.ident;
+    let const_name_str = fn_name.to_string().to_uppercase() + "_ROUTE";
+    let const_ident = syn::Ident::new(&const_name_str, proc_macro2::Span::call_site());
+    let method_ident = syn::Ident::new(method, proc_macro2::Span::call_site());
+
+    let expanded = quote::quote! {
+        #func
+
+        const #const_ident: ::volter::RouteAttr = ::volter::RouteAttr::#method_ident(#path_lit);
+    };
+
+    TokenStream::from(expanded)
+}
+
+/// Register a handler function for GET requests.
+///
+/// Expands the annotated function into a handler function and a `const`
+/// [`RouteAttr`](https://docs.rs/volter-router/latest/volter_router/struct.RouteAttr.html)
+/// that can be passed to [`Router::route_attr`].
+///
+/// # Example
+///
+/// ```ignore
+/// use volter::*;
+///
+/// #[get("/")]
+/// async fn index() -> &'static str {
+///     "Hello, World!"
+/// }
+///
+/// let app: Router = Router::new().route_attr(INDEX_ROUTE, index);
+/// ```
+#[proc_macro_attribute]
+pub fn get(args: TokenStream, input: TokenStream) -> TokenStream {
+    route_attr_impl(args, input, "get")
+}
+
+/// Register a handler function for POST requests.
+///
+/// See [`get`](macro@get) for usage.
+#[proc_macro_attribute]
+pub fn post(args: TokenStream, input: TokenStream) -> TokenStream {
+    route_attr_impl(args, input, "post")
 }

@@ -23,8 +23,10 @@ mod error;
 mod method_router;
 mod pattern;
 mod route;
+mod route_attr;
 mod router;
 
 pub use method_router::MethodRouter;
 pub use route::{get, post};
+pub use route_attr::RouteAttr;
 pub use router::Router;

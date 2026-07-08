@@ -1,0 +1,17 @@
+[package]
+name = "route-macros"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+volter = { path = "../../crates/volter" }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+http-body = { workspace = true }
+bytes = { workspace = true }
+serde = { workspace = true }
