@@ -6,19 +6,23 @@
 //! every rule that hand-written code follows — no hidden panics, no hidden
 //! blocking calls, no hidden `unsafe`.
 //!
-//! Planned macros:
+//! # Derive macros
 //!
-//! - `#[derive(FromRequestParts)]` — composite extractor from named fields,
-//!   each of which is itself `FromRequestParts`.
-//! - `#[derive(FromRequest)]` — same, but for the single body-consuming
-//!   field.
+//! - `#[derive(FromRequestParts)]` — generate a
+//!   [`FromRequestParts`] implementation that
+//!   deserializes the struct from URL query parameters (delegates to
+//!   [`Query`]).
+//! - `#[derive(FromRequest)]` — generate a
+//!   [`FromRequest`] implementation that
+//!   deserializes the struct from a JSON request body (delegates to
+//!   [`Json`]).
+//!
+//! Both derives require the struct to implement
+//! [`serde::de::DeserializeOwned`] (typically via `#[derive(serde::Deserialize)]`).
 //!
 //! volter's core routing API must always work without any macro from this
 //! crate (`Router::new().route("/x", get(handler))`) — macros are additive
 //! sugar, never a requirement.
-//!
-//! TODO(v0.2): implement the two derive macros above once `volter-core`'s
-//! trait signatures are stable.
 
 #![deny(missing_docs)]
 #![deny(
@@ -30,24 +34,177 @@
 
 use proc_macro::TokenStream;
 
-/// Derive macro for `volter_core::FromRequestParts`.
+use syn::{parse_macro_input, Data, DeriveInput, GenericParam, TypeParam};
+
+/// Create the full generics including a phantom `__S` state parameter and
+/// trait bounds.
 ///
-/// Generates an implementation of `FromRequestParts` for a struct where
-/// each field itself implements `FromRequestParts`.
-///
-/// TODO(v0.2): implement the actual derive logic.
-#[proc_macro_derive(FromRequestParts)]
-pub fn derive_from_request_parts(_input: TokenStream) -> TokenStream {
-    TokenStream::default()
+/// `require_static` controls `+'static` on the `Self` bound.
+/// `require_clone` controls `Clone` on the `__S` state parameter (needed
+/// when the generated impl must pass `&__S` across an `.await`).
+fn full_generics(input: &DeriveInput, require_static: bool, require_clone: bool) -> syn::Generics {
+    let mut generics = input.generics.clone();
+    generics.params.push(GenericParam::Type(TypeParam {
+        attrs: vec![],
+        ident: syn::Ident::new("__S", proc_macro2::Span::call_site()),
+        colon_token: None,
+        bounds: Default::default(),
+        eq_token: None,
+        default: None,
+    }));
+    let wc = generics
+        .where_clause
+        .get_or_insert_with(|| syn::WhereClause {
+            where_token: Default::default(),
+            predicates: Default::default(),
+        });
+    if require_static {
+        wc.predicates
+            .push(syn::parse_quote!(Self: ::serde::de::DeserializeOwned + Send + 'static));
+    } else {
+        wc.predicates
+            .push(syn::parse_quote!(Self: ::serde::de::DeserializeOwned + Send));
+    }
+    if require_clone {
+        wc.predicates
+            .push(syn::parse_quote!(__S: Clone + Send + 'static));
+    }
+    generics
 }
 
-/// Derive macro for `volter_core::FromRequest`.
+// ---------------------------------------------------------------------------
+// FromRequestParts derive
+// ---------------------------------------------------------------------------
+
+/// Derive macro for `volter::FromRequestParts`.
 ///
-/// Generates an implementation of `FromRequest` for a struct with a single
-/// body-consuming field that itself implements `FromRequest`.
+/// Generates an implementation of `FromRequestParts` that deserializes the
+/// struct from URL query parameters using `serde_urlencoded` (the same
+/// library that [`Query<T>`](`volter::Query`) uses internally).
 ///
-/// TODO(v0.2): implement the actual derive logic.
+/// The struct must implement [`serde::de::DeserializeOwned`].
+///
+/// # Example
+///
+/// ```ignore
+/// use volter::*;
+///
+/// #[derive(Deserialize, FromRequestParts)]
+/// struct Pagination {
+///     page: u32,
+///     per_page: u32,
+/// }
+///
+/// async fn list(page: Pagination) -> String {
+///     format!("page={}, per_page={}", page.page, page.per_page)
+/// }
+/// ```
+#[proc_macro_derive(FromRequestParts)]
+pub fn derive_from_request_parts(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = &input.ident;
+
+    if !matches!(&input.data, Data::Struct(_)) {
+        return syn::Error::new_spanned(name, "FromRequestParts can only be derived on structs")
+            .to_compile_error()
+            .into();
+    }
+
+    let full = full_generics(&input, false, false);
+    let (impl_generics, _, where_clause) = full.split_for_impl();
+    let (_, ty_generics, _) = input.generics.split_for_impl();
+
+    let expanded = quote::quote! {
+        const _: () = {
+            impl #impl_generics ::volter::FromRequestParts<__S> for #name #ty_generics
+            #where_clause
+            {
+                type Rejection = ::volter::QueryRejection;
+                type Future = ::std::future::Ready<Result<Self, Self::Rejection>>;
+
+                fn from_request_parts(
+                    parts: &mut ::volter::http::request::Parts,
+                    _state: &__S,
+                ) -> Self::Future {
+                    // Equivalent to `Query::from_request_parts` — parse the
+                    // query string via `serde_urlencoded` and deserialise
+                    // directly into `Self`, skipping the `Query<Self>(…)`
+                    // intermediate wrapper that `into_inner()` would need.
+                    let query_string = parts.uri.query().unwrap_or("");
+                    let result = ::volter::serde_urlencoded::from_str::<Self>(query_string)
+                        .map_err(::volter::QueryRejection::from);
+                    ::std::future::ready(result)
+                }
+            }
+        };
+    };
+
+    TokenStream::from(expanded)
+}
+
+// ---------------------------------------------------------------------------
+// FromRequest derive
+// ---------------------------------------------------------------------------
+
+/// Derive macro for `volter::FromRequest`.
+///
+/// Generates an implementation of `FromRequest` that deserializes the
+/// struct from a JSON request body (delegates to
+/// [`Json<T>`](`volter::Json`)).
+///
+/// The struct must implement [`serde::de::DeserializeOwned`].
+///
+/// # Example
+///
+/// ```ignore
+/// use volter::*;
+///
+/// #[derive(Deserialize, FromRequest)]
+/// struct CreateUser {
+///     name: String,
+///     age: u32,
+/// }
+///
+/// async fn create(user: CreateUser) -> String {
+///     format!("created {} (age {})", user.name, user.age)
+/// }
+/// ```
 #[proc_macro_derive(FromRequest)]
-pub fn derive_from_request(_input: TokenStream) -> TokenStream {
-    TokenStream::default()
+pub fn derive_from_request(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = &input.ident;
+
+    if !matches!(&input.data, Data::Struct(_)) {
+        return syn::Error::new_spanned(name, "FromRequest can only be derived on structs")
+            .to_compile_error()
+            .into();
+    }
+
+    let full = full_generics(&input, true, true);
+    let (impl_generics, _, where_clause) = full.split_for_impl();
+    let (_, ty_generics, _) = input.generics.split_for_impl();
+
+    let expanded = quote::quote! {
+        const _: () = {
+            impl #impl_generics ::volter::FromRequest<__S, ::volter::BoxBody> for #name #ty_generics
+            #where_clause
+            {
+                type Rejection = ::volter::JsonRejection;
+                type Future = ::std::pin::Pin<Box<dyn ::std::future::Future<Output = Result<Self, Self::Rejection>> + Send>>;
+
+                fn from_request(
+                    req: ::volter::Request,
+                    _state: &__S,
+                ) -> Self::Future {
+                    let state = _state.clone();
+                    ::std::boxed::Box::pin(async move {
+                        let json = <::volter::Json<Self> as ::volter::FromRequest<__S, ::volter::BoxBody>>::from_request(req, &state).await?;
+                        Ok(json.0)
+                    })
+                }
+            }
+        };
+    };
+
+    TokenStream::from(expanded)
 }

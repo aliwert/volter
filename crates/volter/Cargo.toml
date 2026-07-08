@@ -27,6 +27,9 @@ optional = true
 workspace = true
 optional = true
 
+[dev-dependencies]
+serde = { workspace = true }
+
 [features]
 default = ["macros"]
 macros = ["dep:volter-macros"]

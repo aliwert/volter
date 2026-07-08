@@ -21,15 +21,19 @@
 
 /// Core traits, types, and adapters.
 pub use volter_core::{
-    http, Body, BoxBody, BoxError, FromRequest, FromRequestParts, Handler, HandlerService,
-    IntoResponse, Request, Response,
+    empty_body, full_body, http, Body, BoxBody, BoxError, FromRequest, FromRequestParts, Handler,
+    HandlerService, IntoResponse, Request, Response,
 };
 
 /// Router for request routing.
-pub use volter_router::{get, MethodRouter, Router};
+pub use volter_router::{get, post, MethodRouter, Router};
 
 /// Standard extractors.
-pub use volter_extract::{Extension, Json, Path, Query};
+pub use volter_extract::{Extension, Json, JsonRejection, Path, Query, QueryRejection};
+
+/// Re-export of `serde_urlencoded` so derive macros can access it through
+/// `::volter::serde_urlencoded`.
+pub use volter_extract::serde_urlencoded;
 
 /// Typed application state extractor (defined in `volter-core`).
 pub use volter_core::State;

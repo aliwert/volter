@@ -43,3 +43,7 @@ pub use json::{Json, JsonRejection};
 pub use path::{Path, PathRejection};
 pub use query::{Query, QueryRejection};
 pub use volter_core::State;
+
+/// Re-export of the `serde_urlencoded` crate so derive macros and users can
+/// use it through `volter::serde_urlencoded`.
+pub use serde_urlencoded;

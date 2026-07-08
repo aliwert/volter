@@ -29,6 +29,7 @@ members = [
     "examples/nesting",
     "examples/merge",
     "examples/websocket",
+    "examples/derive-extractors",
 ]
 
 [workspace.package]
