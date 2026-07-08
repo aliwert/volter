@@ -1,0 +1,18 @@
+[book]
+title = "Volter Guide"
+authors = ["Ali Mert"]
+language = "en"
+description = "A production-grade, async-first web framework for Rust"
+
+[output.html]
+no-section-label = true
+
+[output.html.search]
+enable = true
+limit-results = 30
+
+[output.html.playground]
+editable = false
+
+[rust]
+edition = "2021"

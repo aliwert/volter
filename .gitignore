@@ -3,4 +3,11 @@
 Cargo.lock
 .DS_Store
 *.pdb
-*.md
+
+
+/project
+
+/examples/README.md
+/tests/integration/README.md
+
+/docs/book
