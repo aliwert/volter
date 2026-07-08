@@ -1,11 +1,19 @@
 [package]
 name = "volter-ws"
-description = "WebSocket upgrade extractor and connection handling for volter."
+description = "WebSocket support for the volter web framework."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/volter-ws/latest/volter_ws"
+categories = ["web-programming::websocket"]
+keywords = ["web", "websocket", "ws", "http", "async"]
+readme = "../../README.md"
+
+[package.metadata.docs.rs]
+all-features = true
 
 [dependencies]
 volter-core = { workspace = true }

@@ -1,11 +1,16 @@
 [package]
 name = "volter-extract"
-description = "Built-in extractors for volter: Json, Query, Path, State, Extension, headers."
+description = "Built-in extractors for the volter web framework: Json, Query, Path, Extension."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/volter-extract/latest/volter_extract"
+categories.workspace = true
+keywords = ["web", "http", "extractors", "serde", "json"]
+readme = "../../README.md"
 
 [dependencies]
 volter-core = { workspace = true }

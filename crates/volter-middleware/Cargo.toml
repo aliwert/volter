@@ -1,11 +1,16 @@
 [package]
 name = "volter-middleware"
-description = "Built-in tower::Layer middleware for volter: tracing, timeout, CORS, catch_panic, request limits."
+description = "Built-in middleware layers for the volter web framework: tracing, timeout, CORS, compression, rate-limiting, and more."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/volter-middleware/latest/volter_middleware"
+categories.workspace = true
+keywords = ["web", "http", "middleware", "tower", "tracing", "cors"]
+readme = "../../README.md"
 
 [dependencies]
 tokio = { workspace = true }

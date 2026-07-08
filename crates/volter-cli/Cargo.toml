@@ -1,11 +1,16 @@
 [package]
 name = "volter-cli"
-description = "Developer CLI for volter: project scaffolding, dev server with reload."
+description = "CLI tool for scaffolding and developing volter web applications."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/volter-cli/latest/volter_cli"
+categories.workspace = true
+keywords = ["web", "cli", "scaffolding", "dev-server", "volter"]
+readme = "../../README.md"
 
 [[bin]]
 name = "volter"

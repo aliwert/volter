@@ -1,11 +1,16 @@
 [package]
 name = "volter-testing"
-description = "In-process TestClient for integration-testing volter applications without binding a real socket."
+description = "In-process test client for integration-testing volter applications without binding a real socket."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/volter-testing/latest/volter_testing"
+categories.workspace = true
+keywords = ["web", "testing", "test", "http", "integration-testing"]
+readme = "../../README.md"
 
 [dependencies]
 volter-core = { workspace = true }

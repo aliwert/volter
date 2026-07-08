@@ -39,6 +39,8 @@ edition = "2021"
 rust-version = "1.79"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/aliwert/volter"
+homepage = "https://github.com/aliwert/volter"
+categories = ["web-programming::http-server"]
 authors = ["Ali Mert"]
 
 # Central place for dependency versions/features so every crate in the

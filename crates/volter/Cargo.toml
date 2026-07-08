@@ -1,11 +1,19 @@
 [package]
 name = "volter"
-description = "Volter: a production-grade, async-first web framework for Rust. Re-exports the full public API."
+description = "A production-grade, async-first web framework for Rust, built on hyper, tokio, and tower."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/volter/latest/volter"
+categories.workspace = true
+keywords = ["web", "framework", "http", "async", "tower", "router"]
+readme = "../../README.md"
+
+[package.metadata.docs.rs]
+all-features = true
 
 [dependencies]
 volter-core = { workspace = true }

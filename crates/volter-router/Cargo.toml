@@ -1,11 +1,16 @@
 [package]
 name = "volter-router"
-description = "Radix-tree based request router for volter."
+description = "Request router for the volter web framework, with static and parameterised route dispatch."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/volter-router/latest/volter_router"
+categories.workspace = true
+keywords = ["web", "router", "http", "routing", "tower"]
+readme = "../../README.md"
 
 [dependencies]
 volter-core = { workspace = true }

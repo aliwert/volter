@@ -1,11 +1,16 @@
 [package]
 name = "volter-core"
-description = "Core traits and types for the volter web framework: Handler, FromRequest(Parts), IntoResponse."
+description = "Core traits and types for the volter web framework: Handler, FromRequest, IntoResponse, State."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/volter-core/latest/volter_core"
+categories.workspace = true
+keywords = ["web", "framework", "http", "async", "tower", "traits"]
+readme = "../../README.md"
 
 [dependencies]
 http = { workspace = true }

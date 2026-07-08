@@ -1,11 +1,16 @@
 [package]
 name = "volter-macros"
-description = "Derive and attribute macros for volter (FromRequestParts, FromRequest, and later, route attributes)."
+description = "Derive and route attribute macros for the volter web framework."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/volter-macros/latest/volter_macros"
+categories.workspace = true
+keywords = ["web", "macros", "derive", "proc-macro", "http"]
+readme = "../../README.md"
 
 [lib]
 proc-macro = true
