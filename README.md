@@ -52,33 +52,22 @@ async fn main() -> Result<(), volter::BoxError> {
 
 ## Crate layout
 
-| Crate | Description |
-|---|---|
-| [`volter`](https://docs.rs/volter/latest/volter/) | Umbrella crate — re-exports everything |
-| [`volter-core`](https://docs.rs/volter-core/latest/volter_core/) | Core traits: `Handler`, `FromRequest`, `IntoResponse`, `State` |
-| [`volter-router`](https://docs.rs/volter-router/latest/volter_router/) | `Router`, `MethodRouter`, route construction |
-| [`volter-extract`](https://docs.rs/volter-extract/latest/volter_extract/) | Extractors: `Json`, `Query`, `Path`, `Extension` |
-| [`volter-middleware`](https://docs.rs/volter-middleware/latest/volter_middleware/) | Built-in middleware: `TraceLayer`, `CorsLayer`, etc. |
-| [`volter-ws`](https://docs.rs/volter-ws/latest/volter_ws/) | WebSocket support |
-| [`volter-macros`](https://docs.rs/volter-macros/latest/volter_macros/) | Derive and route attribute macros |
-| [`volter-testing`](https://docs.rs/volter-testing/latest/volter_testing/) | `TestClient` for integration tests |
-| [`volter-cli`](https://docs.rs/volter-cli/latest/volter_cli/) | CLI tool for project scaffolding |
+| Crate                                                                              | Description                                                    |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| [`volter`](https://docs.rs/volter/latest/volter/)                                  | Umbrella crate — re-exports everything                         |
+| [`volter-core`](https://docs.rs/volter-core/latest/volter_core/)                   | Core traits: `Handler`, `FromRequest`, `IntoResponse`, `State` |
+| [`volter-router`](https://docs.rs/volter-router/latest/volter_router/)             | `Router`, `MethodRouter`, route construction                   |
+| [`volter-extract`](https://docs.rs/volter-extract/latest/volter_extract/)          | Extractors: `Json`, `Query`, `Path`, `Extension`               |
+| [`volter-middleware`](https://docs.rs/volter-middleware/latest/volter_middleware/) | Built-in middleware: `TraceLayer`, `CorsLayer`, etc.           |
+| [`volter-ws`](https://docs.rs/volter-ws/latest/volter_ws/)                         | WebSocket support                                              |
+| [`volter-macros`](https://docs.rs/volter-macros/latest/volter_macros/)             | Derive and route attribute macros                              |
+| [`volter-testing`](https://docs.rs/volter-testing/latest/volter_testing/)          | `TestClient` for integration tests                             |
+| [`volter-cli`](https://docs.rs/volter-cli/latest/volter_cli/)                      | CLI tool for project scaffolding                               |
 
 ## Performance
 
 See the [performance page](docs/src/performance.md) for current Criterion
 benchmark results.
-
-## License
-
-Licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
-  http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or
-  http://opensource.org/licenses/MIT)
-
-at your option.
 
 [hyper]: https://hyper.rs
 [tokio]: https://tokio.rs
