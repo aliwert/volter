@@ -9,7 +9,7 @@ repository.workspace = true
 homepage.workspace = true
 documentation = "https://docs.rs/volter-middleware/latest/volter_middleware"
 categories.workspace = true
-keywords = ["web", "http", "middleware", "tower", "tracing", "cors"]
+keywords = ["web", "http", "middleware", "tower", "cors"]
 readme = "../../README.md"
 
 [dependencies]

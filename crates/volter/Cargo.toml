@@ -9,7 +9,7 @@ repository.workspace = true
 homepage.workspace = true
 documentation = "https://docs.rs/volter/latest/volter"
 categories.workspace = true
-keywords = ["web", "framework", "http", "async", "tower", "router"]
+keywords = ["web", "framework", "http", "async", "router"]
 readme = "../../README.md"
 
 [package.metadata.docs.rs]

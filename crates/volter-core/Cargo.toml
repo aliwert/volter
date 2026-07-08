@@ -9,7 +9,7 @@ repository.workspace = true
 homepage.workspace = true
 documentation = "https://docs.rs/volter-core/latest/volter_core"
 categories.workspace = true
-keywords = ["web", "framework", "http", "async", "tower", "traits"]
+keywords = ["volter", "web", "http", "tower", "async"]
 readme = "../../README.md"
 
 [dependencies]
