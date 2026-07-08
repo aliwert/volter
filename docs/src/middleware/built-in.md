@@ -90,7 +90,7 @@ For fine-grained control:
 ```rust
 CorsLayer::new()
     .allow_origin("https://myapp.com")
-    .allow_methods([http::Method::GET, http::Method::POST])
+    .allow_methods([http::Method::GET, http::Method::POST, http::Method::PUT, http::Method::DELETE])
     .allow_headers([http::header::CONTENT_TYPE])
     .allow_credentials();
 ```

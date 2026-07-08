@@ -44,7 +44,7 @@ hyper::Server ──► Router ──► MethodRouter
 
 1. **hyper** accepts the TCP connection and parses the HTTP request
 2. **Router** matches the path against registered routes
-3. **MethodRouter** checks the HTTP method (GET, POST, etc.)
+3. **MethodRouter** checks the HTTP method (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS)
 4. **Handler** is called, which runs the extractor chain
 5. **Extractors** pull data from the request (path, query, body, state, etc.)
 6. **Handler function** runs with extracted parameters

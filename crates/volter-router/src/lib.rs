@@ -7,6 +7,11 @@
 //! - [`MethodRouter`] — per-path dispatcher that routes by HTTP method.
 //! - [`get`] — construct a [`MethodRouter`] for a GET handler.
 //! - [`post`] — construct a [`MethodRouter`] for a POST handler.
+//! - [`put`] — construct a [`MethodRouter`] for a PUT handler.
+//! - [`patch`] — construct a [`MethodRouter`] for a PATCH handler.
+//! - [`delete`] — construct a [`MethodRouter`] for a DELETE handler.
+//! - [`head`] — construct a [`MethodRouter`] for a HEAD handler.
+//! - [`options`] — construct a [`MethodRouter`] for an OPTIONS handler.
 //!
 //! See the workspace root `ARCHITECTURE.md` → "Router architecture" for
 //! the full design.
@@ -27,6 +32,6 @@ mod route_attr;
 mod router;
 
 pub use method_router::MethodRouter;
-pub use route::{get, post};
+pub use route::{delete, get, head, options, patch, post, put};
 pub use route_attr::RouteAttr;
 pub use router::Router;

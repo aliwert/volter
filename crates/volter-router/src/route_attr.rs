@@ -7,12 +7,17 @@
 
 use volter_core::Handler;
 
-use crate::{get, post, MethodRouter};
+use crate::{delete, get, head, options, patch, post, put, MethodRouter};
 
 /// The HTTP method stored in a [`RouteAttr`].
 enum RouteMethod {
     Get,
     Post,
+    Put,
+    Patch,
+    Delete,
+    Head,
+    Options,
 }
 
 /// A descriptor that carries a request path and HTTP method, created by
@@ -52,6 +57,46 @@ impl RouteAttr {
         }
     }
 
+    /// Create a new `RouteAttr` for a PUT handler.
+    pub const fn put(path: &'static str) -> Self {
+        Self {
+            path,
+            method: RouteMethod::Put,
+        }
+    }
+
+    /// Create a new `RouteAttr` for a PATCH handler.
+    pub const fn patch(path: &'static str) -> Self {
+        Self {
+            path,
+            method: RouteMethod::Patch,
+        }
+    }
+
+    /// Create a new `RouteAttr` for a DELETE handler.
+    pub const fn delete(path: &'static str) -> Self {
+        Self {
+            path,
+            method: RouteMethod::Delete,
+        }
+    }
+
+    /// Create a new `RouteAttr` for a HEAD handler.
+    pub const fn head(path: &'static str) -> Self {
+        Self {
+            path,
+            method: RouteMethod::Head,
+        }
+    }
+
+    /// Create a new `RouteAttr` for an OPTIONS handler.
+    pub const fn options(path: &'static str) -> Self {
+        Self {
+            path,
+            method: RouteMethod::Options,
+        }
+    }
+
     /// Build a [`MethodRouter`] from this descriptor and a handler.
     pub(crate) fn into_method_router<S, H, T>(self, handler: H) -> MethodRouter<S>
     where
@@ -62,6 +107,11 @@ impl RouteAttr {
         match self.method {
             RouteMethod::Get => get(handler),
             RouteMethod::Post => post(handler),
+            RouteMethod::Put => put(handler),
+            RouteMethod::Patch => patch(handler),
+            RouteMethod::Delete => delete(handler),
+            RouteMethod::Head => head(handler),
+            RouteMethod::Options => options(handler),
         }
     }
 

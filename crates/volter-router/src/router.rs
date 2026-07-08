@@ -223,12 +223,21 @@ impl<S: Clone + Send + 'static> Router<S> {
     pub fn route(mut self, path: &str, method_router: MethodRouter<S>) -> Self {
         let services = method_router.finalize(self.state.clone());
         if path.contains(':') {
-            self.param_routes.push(ParamRoute {
-                pattern: RoutePattern::parse(path),
-                services,
-            });
+            let pattern = RoutePattern::parse(path);
+            if let Some(existing) = self
+                .param_routes
+                .iter_mut()
+                .find(|pr| pr.pattern == pattern)
+            {
+                existing.services.extend(services);
+            } else {
+                self.param_routes.push(ParamRoute { pattern, services });
+            }
         } else {
-            self.static_routes.insert(path.to_owned(), services);
+            self.static_routes
+                .entry(path.to_owned())
+                .and_modify(|existing| existing.extend(services.clone()))
+                .or_insert(services);
         }
         self
     }

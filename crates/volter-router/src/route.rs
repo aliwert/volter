@@ -67,3 +67,67 @@ where
     router.post(handler);
     router
 }
+
+/// Create a [`MethodRouter`] that matches **PUT** requests.
+///
+/// The returned router delegates to `handler` when the request method is
+/// `PUT`.  Other methods on the same path receive a `405 Method Not Allowed`
+/// response.
+pub fn put<H, T, S>(handler: H) -> MethodRouter<S>
+where
+    H: Handler<T, S> + Sync,
+    T: 'static,
+    S: Clone + Send + 'static,
+{
+    let mut router = MethodRouter::new();
+    router.put(handler);
+    router
+}
+
+/// Create a [`MethodRouter`] that matches **PATCH** requests.
+pub fn patch<H, T, S>(handler: H) -> MethodRouter<S>
+where
+    H: Handler<T, S> + Sync,
+    T: 'static,
+    S: Clone + Send + 'static,
+{
+    let mut router = MethodRouter::new();
+    router.patch(handler);
+    router
+}
+
+/// Create a [`MethodRouter`] that matches **DELETE** requests.
+pub fn delete<H, T, S>(handler: H) -> MethodRouter<S>
+where
+    H: Handler<T, S> + Sync,
+    T: 'static,
+    S: Clone + Send + 'static,
+{
+    let mut router = MethodRouter::new();
+    router.delete(handler);
+    router
+}
+
+/// Create a [`MethodRouter`] that matches **HEAD** requests.
+pub fn head<H, T, S>(handler: H) -> MethodRouter<S>
+where
+    H: Handler<T, S> + Sync,
+    T: 'static,
+    S: Clone + Send + 'static,
+{
+    let mut router = MethodRouter::new();
+    router.head(handler);
+    router
+}
+
+/// Create a [`MethodRouter`] that matches **OPTIONS** requests.
+pub fn options<H, T, S>(handler: H) -> MethodRouter<S>
+where
+    H: Handler<T, S> + Sync,
+    T: 'static,
+    S: Clone + Send + 'static,
+{
+    let mut router = MethodRouter::new();
+    router.options(handler);
+    router
+}

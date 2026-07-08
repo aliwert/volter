@@ -23,7 +23,7 @@ enum Segment {
 ///   `comment_id = "2"`.
 /// - `/users/:id` does **not** match `/users` or `/users/42/extra`
 ///   (segment count must match exactly).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RoutePattern {
     segments: Vec<Segment>,
 }

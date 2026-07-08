@@ -8,7 +8,7 @@ Routing maps incoming HTTP requests to handler functions. Volter's `Router` is a
 Create a router and attach handlers with `.route()`:
 
 ```rust
-use volter::{get, post, Router};
+use volter::{get, post, put, patch, delete, head, options, Router};
 
 let app = Router::new()
     .route("/", get(index))
@@ -16,9 +16,10 @@ let app = Router::new()
     .route("/users", post(create_user));
 ```
 
-The first argument is the path, the second is a `MethodRouter` created by the
-`get()` or `post()` free function. Other HTTP methods produce a `405 Method Not
-Allowed` response.
+The first argument is the path, the second is a `MethodRouter` created by one of
+the free functions: `get()`, `post()`, `put()`, `patch()`, `delete()`, `head()`,
+or `options()`.  Unregistered HTTP methods produce a `405 Method Not Allowed`
+response.
 
 ## Route Patterns
 
@@ -45,22 +46,26 @@ The segment count must match exactly. `/users/42` matches `/users/:id`;
 
 ## Method Routing
 
-The `get()` and `post()` functions each return a `MethodRouter` that matches a
-single HTTP method:
+Each free function returns a `MethodRouter` that matches a single HTTP method:
 
 ```rust
-use volter::{get, post, Router};
+use volter::{get, post, put, patch, delete, head, options, Router};
 
 async fn list() -> &'static str { "list" }
 async fn create() -> &'static str { "create" }
+async fn update() -> &'static str { "updated" }
+async fn remove() -> &'static str { "deleted" }
 
 let app = Router::new()
     .route("/items", get(list))
-    .route("/items", post(create));
+    .route("/items", post(create))
+    .route("/items/:id", put(update))
+    .route("/items/:id", delete(remove));
 ```
 
 A GET request to `/items` calls `list`; a POST request calls `create`;
-any other method returns `405`.
+a PUT request to `/items/42` calls `update`; a DELETE request calls `remove`;
+any other unregistered method returns `405`.
 
 ## Merging Routers
 
@@ -100,7 +105,8 @@ Each nested router preserves its own state and middleware.
 ## Route Attribute Macros
 
 As an alternative to the free-function API, you can annotate handlers with
-`#[get("/")]` and `#[post("/")]`:
+`#[get("/")]`, `#[post("/")]`, `#[put("/")]`, `#[patch("/")]`,
+`#[delete("/")]`, `#[head("/")]`, or `#[options("/")]`:
 
 ```rust
 use volter::*;

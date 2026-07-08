@@ -26,6 +26,11 @@
 //!   function and generates a `{FN_NAME_UPPER}_ROUTE` const that can be
 //!   passed to [`Router::route_attr`].
 //! - `#[post("/path")]` — same for POST requests.
+//! - `#[put("/path")]` — same for PUT requests.
+//! - `#[patch("/path")]` — same for PATCH requests.
+//! - `#[delete("/path")]` — same for DELETE requests.
+//! - `#[head("/path")]` — same for HEAD requests.
+//! - `#[options("/path")]` — same for OPTIONS requests.
 //!
 //! volter's core routing API must always work without any macro from this
 //! crate (`Router::new().route("/x", get(handler))`) — macros are additive
@@ -323,4 +328,44 @@ pub fn get(args: TokenStream, input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn post(args: TokenStream, input: TokenStream) -> TokenStream {
     route_attr_impl(args, input, "post")
+}
+
+/// Register a handler function for PUT requests.
+///
+/// See [`get`](macro@get) for usage.
+#[proc_macro_attribute]
+pub fn put(args: TokenStream, input: TokenStream) -> TokenStream {
+    route_attr_impl(args, input, "put")
+}
+
+/// Register a handler function for PATCH requests.
+///
+/// See [`get`](macro@get) for usage.
+#[proc_macro_attribute]
+pub fn patch(args: TokenStream, input: TokenStream) -> TokenStream {
+    route_attr_impl(args, input, "patch")
+}
+
+/// Register a handler function for DELETE requests.
+///
+/// See [`get`](macro@get) for usage.
+#[proc_macro_attribute]
+pub fn delete(args: TokenStream, input: TokenStream) -> TokenStream {
+    route_attr_impl(args, input, "delete")
+}
+
+/// Register a handler function for HEAD requests.
+///
+/// See [`get`](macro@get) for usage.
+#[proc_macro_attribute]
+pub fn head(args: TokenStream, input: TokenStream) -> TokenStream {
+    route_attr_impl(args, input, "head")
+}
+
+/// Register a handler function for OPTIONS requests.
+///
+/// See [`get`](macro@get) for usage.
+#[proc_macro_attribute]
+pub fn options(args: TokenStream, input: TokenStream) -> TokenStream {
+    route_attr_impl(args, input, "options")
 }

@@ -133,6 +133,55 @@ impl<S: Clone + Send + 'static> MethodRouter<S> {
             .insert(Method::POST, HandlerSlot::new(handler));
     }
 
+    /// Register a handler for PUT requests.
+    pub fn put<H, T>(&mut self, handler: H)
+    where
+        H: Handler<T, S> + Sync,
+        T: 'static,
+    {
+        self.handlers.insert(Method::PUT, HandlerSlot::new(handler));
+    }
+
+    /// Register a handler for PATCH requests.
+    pub fn patch<H, T>(&mut self, handler: H)
+    where
+        H: Handler<T, S> + Sync,
+        T: 'static,
+    {
+        self.handlers
+            .insert(Method::PATCH, HandlerSlot::new(handler));
+    }
+
+    /// Register a handler for DELETE requests.
+    pub fn delete<H, T>(&mut self, handler: H)
+    where
+        H: Handler<T, S> + Sync,
+        T: 'static,
+    {
+        self.handlers
+            .insert(Method::DELETE, HandlerSlot::new(handler));
+    }
+
+    /// Register a handler for HEAD requests.
+    pub fn head<H, T>(&mut self, handler: H)
+    where
+        H: Handler<T, S> + Sync,
+        T: 'static,
+    {
+        self.handlers
+            .insert(Method::HEAD, HandlerSlot::new(handler));
+    }
+
+    /// Register a handler for OPTIONS requests.
+    pub fn options<H, T>(&mut self, handler: H)
+    where
+        H: Handler<T, S> + Sync,
+        T: 'static,
+    {
+        self.handlers
+            .insert(Method::OPTIONS, HandlerSlot::new(handler));
+    }
+
     /// Finalize all stored handlers into boxed cloneable services.
     ///
     /// Consumes the `MethodRouter` and returns a map from HTTP method to

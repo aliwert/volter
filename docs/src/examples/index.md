@@ -88,7 +88,7 @@ Using `#[derive(FromRequestParts)]` and `#[derive(FromRequest)]` on your types.
 cargo run -p route-macros
 ```
 
-Using `#[get("/")]` and `#[post("/")]` with `Router::route_attr()`.
+Using `#[get]`, `#[post]`, `#[put]`, `#[patch]`, `#[delete]`, `#[head]`, and `#[options]` with `Router::route_attr()`. Demonstrates a full REST-style API.
 
 ## WebSocket
 

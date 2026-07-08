@@ -76,7 +76,7 @@ Volter has two optional feature flags:
 
 | Feature  | Default  | Description                                                                                        |
 | -------- | -------- | -------------------------------------------------------------------------------------------------- |
-| `macros` | Enabled  | Derive macros (`FromRequestParts`, `FromRequest`) and route attribute macros (`#[get]`, `#[post]`) |
+| `macros` | Enabled  | Derive macros (`FromRequestParts`, `FromRequest`) and route attribute macros (`#[get]`, `#[post]`, `#[put]`, `#[patch]`, `#[delete]`, `#[head]`, `#[options]`) |
 | `ws`     | Disabled | WebSocket support (`WebSocketUpgrade`, `WebSocket`)                                                |
 
 Enable WebSocket support:

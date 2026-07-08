@@ -1,7 +1,8 @@
 # Route Attribute Macros
 
-The `#[get]` and `#[post]` attribute macros provide a shorthand for defining
-routes directly on your handler functions.
+The `#[get]`, `#[post]`, `#[put]`, `#[patch]`, `#[delete]`, `#[head]`, and
+`#[options]` attribute macros provide a shorthand for defining routes directly
+on your handler functions.
 
 ## Basic Usage
 
@@ -88,9 +89,20 @@ Router::new().route("/", get(home))
 The attribute macro style keeps the route pattern next to the function, which
 can be easier to maintain as the number of handlers grows.
 
+## Available Macros
+
+| Macro          | HTTP method |
+| -------------- | ----------- |
+| `#[get(path)]` | GET         |
+| `#[post(path)]` | POST        |
+| `#[put(path)]` | PUT         |
+| `#[patch(path)]` | PATCH      |
+| `#[delete(path)]` | DELETE   |
+| `#[head(path)]` | HEAD        |
+| `#[options(path)]` | OPTIONS  |
+
 ## Limitations
 
-- Only `GET` and `POST` are supported currently
 - Arguments must be a single string literal (e.g. `#[get("/path")]`)
 - The function must be `async`
 - Works best with `Router::new()` — stateful routers require the state type
