@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="../assets/volter.png" alt="Volter logo" width="180"/>
+</div>
+
 # Volter Guide
 
 This directory contains the mdBook source for the Volter user guide.

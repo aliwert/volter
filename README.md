@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="assets/volter.png" alt="Volter logo" width="180"/>
+</div>
+
 # Volter
 
 A production-grade, async-first web framework for Rust, built on
