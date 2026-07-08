@@ -1,14 +1,13 @@
 //! `volter` developer CLI.
 //!
-//! Planned subcommands:
+//! # Subcommands
 //!
-//! - `volter new <name>` — scaffold a new volter project from a template.
-//! - `volter run` — run the current project with a file-watcher / reload.
-//!
-//! This is the one crate in the workspace where `anyhow`, `unwrap`, and
-//! `panic!` are acceptable (it's a binary, not a published library API —
-//! see `RULES.md` #1 and #4) but they're still avoided by default for
-//! consistency; prefer a clear `anyhow::Context` message over an `unwrap`.
+//! - [`new`](crate::Command::New) — scaffold a new volter project.
+//! - `run` — planned: run the current project with reload-on-change.
+
+#![deny(missing_docs)]
+
+mod new;
 
 use clap::{Parser, Subcommand};
 
@@ -26,7 +25,7 @@ enum Command {
         /// Name of the new project.
         name: String,
     },
-    /// Run the current project with reload-on-change.
+    /// Run the current project with reload-on-change (not implemented yet).
     Run,
 }
 
@@ -34,13 +33,10 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::New { name } => {
-            println!("TODO: scaffold new project '{name}' (not implemented yet)");
-        }
+        Command::New { name } => new::run_new(&name),
         Command::Run => {
             println!("TODO: run project with reload (not implemented yet)");
+            Ok(())
         }
     }
-
-    Ok(())
 }
